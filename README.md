@@ -2,6 +2,7 @@
 
 > 帮您整理就诊信息，让每一次问诊更从容
 
+[![Deploy](https://github.com/ShuoMeng66/MedPrep/actions/workflows/deploy.yml/badge.svg)](https://github.com/ShuoMeng66/MedPrep/actions/workflows/deploy.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
@@ -109,20 +110,40 @@ src/
 | `npm run build` | 生产构建 |
 | `npm run preview` | 本地预览构建产物 |
 | `npm run check` | TypeScript 类型检查 |
-| `npm run deploy` | 部署到 GitHub Pages |
 
 ---
 
 ## 部署
 
-本项目使用 GitHub Pages 部署。
+本项目使用 **GitHub Actions** 自动部署到 GitHub Pages。推送代码到 `master` 分支即可触发自动构建和部署。
 
-```bash
-# 构建并部署
-npm run deploy
+```mermaid
+flowchart LR
+    A["Push to master"] --> B["GitHub Actions"]
+    B --> C["npm ci + build"]
+    C --> D["Deploy to gh-pages"]
+    D --> E["GitHub Pages 生效"]
 ```
 
-部署后访问：`https://shuomeng66.github.io/MedPrep/`
+### 自动部署
+
+```bash
+git add . && git commit -m "..." && git push origin master
+# 推送后 GitHub Actions 自动执行构建和部署
+```
+
+### 本地构建验证
+
+```bash
+npm run build       # 构建到 dist/
+npm run preview     # 本地预览构建产物
+```
+
+### 部署地址
+
+**在线体验**：[https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/)
+
+> 部署状态可在 [Actions 页面](https://github.com/ShuoMeng66/MedPrep/actions) 查看。
 
 ---
 

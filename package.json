@@ -1,7 +1,8 @@
 {
-  "name": "trae-project",
+  "name": "medprep",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "陪诊锦囊 MedPrep - 就诊辅助工具，帮您整理就诊信息，让每一次问诊更从容",
   "type": "module",
   "scripts": {
     "dev": "vite",
