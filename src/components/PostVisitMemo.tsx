@@ -12,6 +12,7 @@ import {
   CalendarClock,
   Eye,
   Users,
+  Brain,
 } from 'lucide-react'
 import {
   parsePostVisit,
@@ -20,6 +21,7 @@ import {
   type PostVisitData,
 } from '@/utils/postVisitParser'
 import { writeVisitData } from '@/utils/visitStore'
+import { callLLM, LLMError, type LLMPostVisitResult } from '@/services/llmService'
 
 const EXAMPLE_TEXT = `医生诊断为急性上呼吸道感染，建议多休息、多喝水。
 开具阿莫西林胶囊，每次0.5g，每日3次，饭后服用，注意有无过敏反应。
@@ -35,6 +37,9 @@ export default function PostVisitMemo() {
   const [copiedAll, setCopiedAll] = useState(false)
   const [copiedPlain, setCopiedPlain] = useState(false)
   const [copiedCard, setCopiedCard] = useState<string | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiEnhanced, setAiEnhanced] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const copyToClipboard = useCallback(async (content: string, setState: (v: boolean) => void) => {
     try {
@@ -57,20 +62,52 @@ export default function PostVisitMemo() {
       return
     }
     setError(null)
+    setAiError(null)
     setLoading(true)
+    setAiLoading(false)
+    setAiEnhanced(false)
     setResult(null)
 
-    await new Promise((r) => setTimeout(r, 800))
+    await new Promise((r) => setTimeout(r, 400))
 
     const data = parsePostVisit(text)
 
-    // 保存到 localStorage
+    setResult(data)
+    setLoading(false)
+
+    // 保存本地解析结果
     writeVisitData({
       postVisit: { text, data, timestamp: Date.now() },
     })
 
-    setResult(data)
-    setLoading(false)
+    // AI 增强
+    setAiLoading(true)
+    try {
+      const aiResult = await callLLM<LLMPostVisitResult>({
+        userInput: text,
+        mode: 'postVisit',
+      })
+      // 合并 AI 结果到本地解析
+      const enhancedData: PostVisitData = {
+        doctorSummary: aiResult.doctorSummary.length > 0 ? aiResult.doctorSummary : data.doctorSummary,
+        medications: aiResult.medications.length > 0 ? aiResult.medications : data.medications,
+        followUps: aiResult.followUps.length > 0 ? aiResult.followUps : data.followUps,
+        warnings: aiResult.warnings.length > 0 ? aiResult.warnings : data.warnings,
+      }
+      setResult(enhancedData)
+      setAiEnhanced(true)
+      writeVisitData({
+        postVisit: { text, data: enhancedData, timestamp: Date.now(), aiEnhanced: true },
+      })
+    } catch (err) {
+      if (err instanceof LLMError) {
+        setAiError(err.message)
+      } else {
+        setAiError('AI 增强失败，已展示规则解析结果')
+      }
+    } finally {
+      setAiLoading(false)
+    }
   }, [text])
 
   const handleCopyAll = useCallback(() => {
@@ -195,6 +232,26 @@ export default function PostVisitMemo() {
           重新生成
         </button>
       </div>
+
+      {/* AI 增强状态 */}
+      {aiLoading && (
+        <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Loader2 className="w-4 h-4 text-blue-400 animate-spin flex-shrink-0" />
+          <span className="text-sm text-blue-600">AI 正在优化整理结果…</span>
+        </div>
+      )}
+      {aiEnhanced && (
+        <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-2">
+          <Brain className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <span className="text-xs text-blue-600">AI 已优化整理，基于您的输入，不构成医疗建议</span>
+        </div>
+      )}
+      {aiError && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+          <span className="text-sm text-amber-700">{aiError}</span>
+        </div>
+      )}
 
       {/* 操作按钮 */}
       <div className="flex gap-2 mb-4">

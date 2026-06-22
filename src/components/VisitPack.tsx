@@ -377,7 +377,29 @@ export default function VisitPack() {
         onJump={() => setActiveTab('timeline')}
       >
         {data.timeline && (
-          <div className="relative">
+          <>
+            {/* AI 整理后表述 */}
+            {data.timeline.clinicalSummary && data.timeline.clinicalSummary.length > 0 && (
+              <div className="mb-4 bg-blue-50 rounded-xl px-4 py-3">
+                <p className="text-xs font-medium text-blue-600 mb-2">整理后表述</p>
+                <ul className="space-y-1.5">
+                  {data.timeline.clinicalSummary.map((s, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-gray-700">
+                      <span className="flex-shrink-0 w-4 h-4 rounded-full bg-blue-200 text-blue-700 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                      <span>{s}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* AI 30秒版 */}
+            {data.timeline.thirtySecondVersion && (
+              <div className="mb-4 bg-green-50 rounded-xl px-4 py-3">
+                <p className="text-xs font-medium text-green-600 mb-1">给医生听的 30 秒版</p>
+                <p className="text-sm text-gray-700 italic">"{data.timeline.thirtySecondVersion}"</p>
+              </div>
+            )}
+            <div className="relative">
             <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-orange-200 rounded-full" />
             {data.timeline.entries.map((entry, i) => (
               <div key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
@@ -404,6 +426,7 @@ export default function VisitPack() {
               </div>
             ))}
           </div>
+          </>
         )}
       </SectionCard>
 
@@ -489,6 +512,23 @@ export default function VisitPack() {
                 </div>
               ))}
             </div>
+            {/* AI 增强解读 */}
+            {data.report.aiEnhanced?.plainExplanation && (
+              <div className="mt-3 bg-blue-50 rounded-xl px-4 py-3">
+                <p className="text-xs font-medium text-blue-600 mb-1.5">AI 白话解读</p>
+                <p className="text-sm text-gray-700 leading-relaxed">{data.report.aiEnhanced.plainExplanation}</p>
+                {data.report.aiEnhanced.keyPoints && data.report.aiEnhanced.keyPoints.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {data.report.aiEnhanced.keyPoints.map((kp, i) => (
+                      <div key={i} className="text-xs text-blue-700 flex items-start gap-1.5">
+                        <span className="font-bold">{i + 1}.</span>
+                        <span>{kp}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {data.report.result.followUpQuestions.length > 0 && (
               <div className="mt-3 space-y-1.5">
                 <p className="text-xs font-medium text-gray-500">复诊追问建议</p>

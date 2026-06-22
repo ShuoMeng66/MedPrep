@@ -10,6 +10,8 @@ export interface VisitData {
   timeline?: {
     text: string
     entries: TimelineEntry[]
+    clinicalSummary?: string[]
+    thirtySecondVersion?: string
   }
   checklist?: {
     symptoms: string
@@ -21,11 +23,17 @@ export interface VisitData {
     description: string
     imagePreview: string | null
     result: ReportInterpretation
+    aiEnhanced?: {
+      plainExplanation?: string
+      keyPoints?: string[]
+      followUpQuestions?: string[]
+    }
   }
   postVisit?: {
     text: string
     data: PostVisitData
     timestamp: number
+    aiEnhanced?: boolean
   }
 }
 

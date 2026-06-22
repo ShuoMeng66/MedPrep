@@ -8,7 +8,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178C6?logo=typescript)](https://www.typescriptlang.org/)
 [![Vite](https://img.shields.io/badge/Vite-6-646CFF?logo=vite)](https://vitejs.dev/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-3-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
- 网页链接:https://shuomeng66.github.io/MedPrep/
+
 ## 目录
 
 - [项目简介](#项目简介)
@@ -75,6 +75,16 @@
 - **生成分享链接**：将就诊数据压缩编码到 URL hash 中，生成可分享的链接和二维码
 - 分享链接打开后为只读视图，顶部提示「家人分享的就诊资料，仅供参考」
 
+### AI 智能整理
+
+接入大模型（百炼 Qwen-Plus），将口语描述转化为结构化医学表述。
+
+- **症状时间线**：生成「整理后表述」（结构化分条）+「给医生听的 30 秒版」
+- **诊后备忘**：AI 优化口语医嘱 → 用药表 + 随访项，禁止补充医学判断
+- **报告解读**：AI 白话解读，引用用户提供的数值，不虚构指标
+- 所有 AI 输出旁展示免责声明，AI 不可用时降级为规则解析
+- 通过 Cloudflare Worker 代理 API Key，前端不暴露密钥
+
 ## 技术栈
 
 | 类别 | 技术 |
@@ -140,7 +150,7 @@ src/
     ├── visitStore.ts           # localStorage 统一读写
     ├── compareVisits.ts        # 复诊对比引擎
     └── shareUtils.ts           # 分享链接编码/解码
-```
+
 ## 可用脚本
 
 | 命令 | 说明 |
@@ -150,7 +160,75 @@ src/
 | `npm run preview` | 本地预览构建产物 |
 | `npm run check` | 仅运行 TypeScript 类型检查 |
 
+## 部署
 
+### AI 代理（Cloudflare Worker）
+
+AI 功能需要部署 API 代理，避免前端暴露 API Key。
+
+```bash
+# 1. 安装 Wrangler CLI
+npm install -g wrangler
+
+# 2. 登录 Cloudflare
+wrangler login
+
+# 3. 进入 worker 目录
+cd worker
+
+# 4. 设置 API Key（百炼大模型）
+wrangler secret put BAILIAN_API_KEY
+# 输入：sk-ws-H.RPYHHPL...
+
+# 5. 部署
+wrangler deploy
+```
+
+部署后获得 Worker URL（如 `https://medprep-ai-proxy.xxx.workers.dev`），将其填入项目根目录 `.env` 文件：
+
+```env
+VITE_AI_PROXY_URL=https://medprep-ai-proxy.你的账号.workers.dev
+```
+
+### Vercel（推荐 · 国内访问友好）
+
+Vercel 在亚太地区有边缘节点，国内访问速度优于 GitHub Pages。
+
+1. 打开 [vercel.com/new](https://vercel.com/new)
+2. 点击 **Import** → 选择 **GitHub** → 授权并选择 `ShuoMeng66/MedPrep`
+3. Vercel 自动识别 Vite 框架，无需额外配置
+4. 点击 **Deploy**，约 30 秒完成部署
+5. 获得体验链接，格式：`https://medprep-xxx.vercel.app`
+
+> 后续每次 push 到 `master` 分支，Vercel 会自动重新部署。
+
+### GitHub Pages
+
+本项目已配置 GitHub Actions 自动部署。
+
+```mermaid
+flowchart LR
+    A["Push to master"] --> B["GitHub Actions"]
+    B --> C["npm ci + build"]
+    C --> D["Deploy to gh-pages"]
+    D --> E["GitHub Pages"]
+```
+
+```bash
+git push origin master
+# 推送后 GitHub Actions 自动执行构建和部署
+```
+
+> 需在仓库 [Pages 设置](https://github.com/ShuoMeng66/MedPrep/settings/pages) 中将 Source 设为 `gh-pages` 分支。
+
+### 部署地址
+
+| 平台 | 地址 | 国内访问 |
+|------|------|----------|
+| Vercel | `https://medprep-xxx.vercel.app`（部署后获得） | 快 |
+| GitHub Pages | [https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/) | 一般 |
+
+> 部署状态可在 [Actions 页面](https://github.com/ShuoMeng66/MedPrep/actions) 查看。
 
 ## 设计理念
 

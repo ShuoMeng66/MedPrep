@@ -10,6 +10,7 @@ import {
   Copy,
   Lightbulb,
   Stethoscope,
+  Brain,
 } from 'lucide-react'
 import {
   interpretReport,
@@ -18,6 +19,7 @@ import {
   type ReportInterpretation,
 } from '@/utils/reportInterpreter'
 import { writeVisitData } from '@/utils/visitStore'
+import { callLLM, LLMError, type LLMReportResult } from '@/services/llmService'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png']
@@ -40,6 +42,9 @@ export default function ReportReader() {
   const [copied, setCopied] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiResult, setAiResult] = useState<LLMReportResult | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   // 清理预览 URL
   useEffect(() => {
@@ -113,10 +118,12 @@ export default function ReportReader() {
     }
 
     setError(null)
+    setAiError(null)
     setLoading(true)
     setResult(null)
+    setAiResult(null)
 
-    await new Promise((r) => setTimeout(r, 1200))
+    await new Promise((r) => setTimeout(r, 600))
 
     try {
       const interpretation = interpretReport(description)
@@ -124,12 +131,42 @@ export default function ReportReader() {
       writeVisitData({
         report: { description, imagePreview, result: interpretation },
       })
+      setLoading(false)
+
+      // AI 增强
+      setAiLoading(true)
+      try {
+        const ai = await callLLM<LLMReportResult>({
+          userInput: description,
+          mode: 'report',
+        })
+        setAiResult(ai)
+        writeVisitData({
+          report: {
+            description,
+            imagePreview,
+            result: interpretation,
+            aiEnhanced: {
+              plainExplanation: ai.plainExplanation,
+              keyPoints: ai.keyPoints,
+              followUpQuestions: ai.followUpQuestions,
+            },
+          },
+        })
+      } catch (err) {
+        if (err instanceof LLMError) {
+          setAiError(err.message)
+        } else {
+          setAiError('AI 增强失败，已展示规则解读结果')
+        }
+      } finally {
+        setAiLoading(false)
+      }
     } catch {
       setError('解读失败，请检查输入内容')
-    } finally {
       setLoading(false)
     }
-  }, [description])
+  }, [description, imagePreview])
 
   const handleCopy = useCallback(async () => {
     if (!result) return
@@ -374,6 +411,48 @@ export default function ReportReader() {
           ))}
         </div>
       </div>
+
+      {/* AI 增强状态 */}
+      {aiLoading && (
+        <div className="mb-4 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-center gap-3">
+          <Loader2 className="w-4 h-4 text-blue-400 animate-spin flex-shrink-0" />
+          <span className="text-sm text-blue-600">AI 正在优化解读…</span>
+        </div>
+      )}
+      {aiError && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+          <span className="text-sm text-amber-700">{aiError}</span>
+        </div>
+      )}
+
+      {/* AI 白话解读 */}
+      {aiResult?.plainExplanation && (
+        <div className="bg-white rounded-2xl shadow-sm border border-blue-200 border-l-4 border-l-blue-400 mb-4 overflow-hidden">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-blue-50/50">
+            <Brain className="w-4 h-4 text-blue-500" />
+            <h3 className="text-sm font-semibold text-gray-800">AI 白话解读</h3>
+          </div>
+          <div className="p-4">
+            <p className="text-sm text-gray-700 leading-relaxed">{aiResult.plainExplanation}</p>
+            {aiResult.keyPoints && aiResult.keyPoints.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <p className="text-xs font-medium text-gray-500">关键发现</p>
+                {aiResult.keyPoints.map((kp, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+                    <span className="font-bold">{i + 1}.</span>
+                    <span>{kp}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="mt-3 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 flex items-start gap-2">
+              <AlertCircle className="w-4 h-4 text-blue-400 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-blue-600">AI 解读基于您提供的数值，不虚构指标，仅供参考</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 复制按钮 */}
       <button

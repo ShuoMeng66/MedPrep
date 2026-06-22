@@ -1,0 +1,6 @@
+name = "medprep-ai-proxy"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+# 部署后获得 worker URL，例如 https://medprep-ai-proxy.xxx.workers.dev
+# 将其填入前端 .env 文件的 VITE_AI_PROXY_URL
