@@ -723,11 +723,16 @@ export default function VisitPack() {
               {/* 二维码 */}
               {showQr && (
                 <div className="text-center">
-                  <p className="text-sm font-medium text-gray-600 mb-3">扫码查看</p>
-                  <div className="inline-block bg-white p-3 rounded-xl border border-gray-200">
-                    <QRCodeSVG value={shareUrl} size={160} level="M" />
+                  <p className="text-sm font-medium text-gray-600 mb-3">微信扫码查看</p>
+                  <div className="inline-block bg-white p-4 rounded-xl border border-gray-200">
+                    <QRCodeSVG
+                      value={shareUrl}
+                      size={200}
+                      level="H"
+                      includeMargin
+                    />
                   </div>
-                  <p className="text-xs text-gray-400 mt-2">微信扫码即可打开</p>
+                  <p className="text-xs text-gray-400 mt-2">长按或截图后用微信扫一扫打开</p>
                 </div>
               )}
 
