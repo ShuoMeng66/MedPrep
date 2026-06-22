@@ -150,47 +150,7 @@ src/
 | `npm run preview` | 本地预览构建产物 |
 | `npm run check` | 仅运行 TypeScript 类型检查 |
 
-## 部署
 
-### Vercel（推荐 · 国内访问友好）
-
-Vercel 在亚太地区有边缘节点，国内访问速度优于 GitHub Pages。
-
-1. 打开 [vercel.com/new](https://vercel.com/new)
-2. 点击 **Import** → 选择 **GitHub** → 授权并选择 `ShuoMeng66/MedPrep`
-3. Vercel 自动识别 Vite 框架，无需额外配置
-4. 点击 **Deploy**，约 30 秒完成部署
-5. 获得体验链接，格式：`https://medprep-xxx.vercel.app`
-
-> 后续每次 push 到 `master` 分支，Vercel 会自动重新部署。
-
-### GitHub Pages
-
-本项目已配置 GitHub Actions 自动部署。
-
-```mermaid
-flowchart LR
-    A["Push to master"] --> B["GitHub Actions"]
-    B --> C["npm ci + build"]
-    C --> D["Deploy to gh-pages"]
-    D --> E["GitHub Pages"]
-```
-
-```bash
-git push origin master
-# 推送后 GitHub Actions 自动执行构建和部署
-```
-
-> 需在仓库 [Pages 设置](https://github.com/ShuoMeng66/MedPrep/settings/pages) 中将 Source 设为 `gh-pages` 分支。
-
-### 部署地址
-
-| 平台 | 地址 | 国内访问 |
-|------|------|----------|
-| Vercel | `https://medprep-xxx.vercel.app`（部署后获得） | 快 |
-| GitHub Pages | [https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/) | 一般 |
-
-> 部署状态可在 [Actions 页面](https://github.com/ShuoMeng66/MedPrep/actions) 查看。
 
 ## 设计理念
 
