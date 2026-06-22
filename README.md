@@ -1,7 +1,7 @@
 # 陪诊锦囊 MedPrep
 
 > 帮您整理就诊信息，让每一次问诊更从容
-
+> 网页链接:https://shuomeng66.github.io/MedPrep/
 [![Deploy](https://github.com/ShuoMeng66/MedPrep/actions/workflows/deploy.yml/badge.svg)](https://github.com/ShuoMeng66/MedPrep/actions/workflows/deploy.yml)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![React](https://img.shields.io/badge/React-18-61DAFB?logo=react)](https://react.dev/)
