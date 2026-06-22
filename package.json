@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "check": "tsc -b --noEmit",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d dist"
+    "deploy": "git subtree push --prefix dist origin gh-pages"
   },
   "dependencies": {
     "clsx": "^2.1.1",
