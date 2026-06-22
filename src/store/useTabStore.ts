@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type TabKey = 'timeline' | 'checklist' | 'report'
+export type TabKey = 'timeline' | 'checklist' | 'report' | 'postvisit' | 'visitpack'
 
 interface TabState {
   activeTab: TabKey

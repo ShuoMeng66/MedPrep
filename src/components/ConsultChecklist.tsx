@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 import {
   ClipboardList,
   Sparkles,
@@ -16,6 +16,7 @@ import {
   type QuestionItem,
   type QuestionCategory,
 } from '@/utils/questionGenerator'
+import { writeVisitData } from '@/utils/visitStore'
 
 const DEPARTMENTS = ['内科', '骨科', '皮肤科', '妇科', '儿科', '其他']
 
@@ -74,6 +75,9 @@ export default function ConsultChecklist() {
         setQuestions(result)
         setCheckedIds(new Set())
         setCollapsedCategories(new Set())
+        writeVisitData({
+          checklist: { symptoms, department, questions: result, checkedIds: [] },
+        })
       }
     } catch {
       setError('生成失败，请检查输入内容')
@@ -145,6 +149,19 @@ export default function ConsultChecklist() {
     const checked = checkedIds.size
     return { total, checked }
   }, [questions, checkedIds])
+
+  // 勾选变化时同步到 localStorage
+  useEffect(() => {
+    if (questions.length === 0) return
+    writeVisitData({
+      checklist: {
+        symptoms,
+        department,
+        questions,
+        checkedIds: Array.from(checkedIds),
+      },
+    })
+  }, [checkedIds, questions, symptoms, department])
 
   // 空状态
   if (questions.length === 0 && !loading) {

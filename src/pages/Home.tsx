@@ -3,6 +3,8 @@ import TabBar from '@/components/TabBar'
 import SymptomTimeline from '@/components/SymptomTimeline'
 import ConsultChecklist from '@/components/ConsultChecklist'
 import ReportReader from '@/components/ReportReader'
+import PostVisitMemo from '@/components/PostVisitMemo'
+import VisitPack from '@/components/VisitPack'
 import { useTabStore } from '@/store/useTabStore'
 
 export default function Home() {
@@ -16,6 +18,8 @@ export default function Home() {
         {activeTab === 'timeline' && <SymptomTimeline />}
         {activeTab === 'checklist' && <ConsultChecklist />}
         {activeTab === 'report' && <ReportReader />}
+        {activeTab === 'postvisit' && <PostVisitMemo />}
+        {activeTab === 'visitpack' && <VisitPack />}
       </div>
     </div>
   )

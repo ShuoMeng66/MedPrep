@@ -17,6 +17,7 @@ import {
   getAbnormalHint,
   type ReportInterpretation,
 } from '@/utils/reportInterpreter'
+import { writeVisitData } from '@/utils/visitStore'
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png']
@@ -120,6 +121,9 @@ export default function ReportReader() {
     try {
       const interpretation = interpretReport(description)
       setResult(interpretation)
+      writeVisitData({
+        report: { description, imagePreview, result: interpretation },
+      })
     } catch {
       setError('解读失败，请检查输入内容')
     } finally {

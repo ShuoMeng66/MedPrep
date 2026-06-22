@@ -5,6 +5,7 @@ import {
   formatTimelineForCopy,
   type TimelineEntry,
 } from '@/utils/timelineParser'
+import { writeVisitData } from '@/utils/visitStore'
 
 const DEPARTMENTS = ['内科', '骨科', '皮肤科', '妇科', '儿科', '其他']
 
@@ -43,6 +44,7 @@ export default function SymptomTimeline() {
         setEntries([])
       } else {
         setEntries(result)
+        writeVisitData({ timeline: { text, entries: result } })
       }
     } catch {
       setError('解析失败，请检查输入内容')
