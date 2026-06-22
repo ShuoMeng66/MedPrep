@@ -1,0 +1,972 @@
+import { useState, useCallback, useMemo } from 'react'
+import {
+  FolderOpen,
+  Copy,
+  Check,
+  Printer,
+  Save,
+  Clock,
+  ClipboardList,
+  FileText,
+  NotebookPen,
+  AlertCircle,
+  ExternalLink,
+  Stethoscope,
+  Pill,
+  CalendarClock,
+  Eye,
+  GitCompare,
+  ChevronDown,
+  ChevronUp,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Plus,
+  Share2,
+  QrCode,
+  ShieldAlert,
+  X,
+} from 'lucide-react'
+import { readVisitData, saveToHistory, type VisitData } from '@/utils/visitStore'
+import { useTabStore } from '@/store/useTabStore'
+import type { TimelineEntry } from '@/utils/timelineParser'
+import type { QuestionItem, QuestionCategory } from '@/utils/questionGenerator'
+import type { ReportInterpretation } from '@/utils/reportInterpreter'
+import type { PostVisitData } from '@/utils/postVisitParser'
+import {
+  getLastHistory,
+  compareVisits,
+  formatComparisonForText,
+  formatComparisonForHtml,
+  type VisitComparison,
+  type SymptomTrend,
+} from '@/utils/compareVisits'
+import { encodeShareData, copyToClipboard } from '@/utils/shareUtils'
+import { QRCodeSVG } from 'qrcode.react'
+
+const SEVERITY_LABELS: Record<string, string> = { '轻': '轻度', '中': '中度', '重': '重度' }
+
+const CATEGORY_LABELS: Record<QuestionCategory, string> = {
+  '病因排查': '病因排查',
+  '检查建议': '检查建议',
+  '用药注意': '用药注意',
+  '复诊安排': '复诊安排',
+}
+
+export default function VisitPack() {
+  const setActiveTab = useTabStore((s) => s.setActiveTab)
+  const [copied, setCopied] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [toast, setToast] = useState<string | null>(null)
+  const [showShareDialog, setShowShareDialog] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
+  const [showQr, setShowQr] = useState(false)
+
+  const data = useMemo(() => readVisitData(), [])
+
+  const hasAnyData = data.timeline || data.checklist || data.report || data.postVisit
+
+  // 复诊对比
+  const [comparisonExpanded, setComparisonExpanded] = useState(false)
+  const comparison = useMemo(() => {
+    const lastHistory = getLastHistory()
+    if (!lastHistory) return null
+    return compareVisits(lastHistory.data, data, lastHistory.label)
+  }, [data])
+
+  const showToast = useCallback((msg: string) => {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }, [])
+
+  const generateTime = useMemo(() => {
+    const now = new Date()
+    const y = now.getFullYear()
+    const m = String(now.getMonth() + 1).padStart(2, '0')
+    const d = String(now.getDate()).padStart(2, '0')
+    const h = String(now.getHours()).padStart(2, '0')
+    const min = String(now.getMinutes()).padStart(2, '0')
+    return `${y}-${m}-${d} ${h}:${min}`
+  }, [])
+
+  // 生成纯文本全文
+  const formatFullText = useCallback((data: VisitData): string => {
+    const lines: string[] = []
+    lines.push('陪诊锦囊 · 本次就诊资料')
+    lines.push(`生成时间：${generateTime}`)
+    lines.push('═'.repeat(30))
+    lines.push('')
+
+    if (data.timeline) {
+      lines.push('【症状时间线】')
+      data.timeline.entries.forEach((e: TimelineEntry, i: number) => {
+        lines.push(`  ${i + 1}. ${e.dateLabel}（${SEVERITY_LABELS[e.severity]}）`)
+        lines.push(`     ${e.description}`)
+      })
+      lines.push('')
+    }
+
+    if (data.checklist) {
+      lines.push('【问诊清单】')
+      const checked = new Set(data.checklist.checkedIds)
+      const checkedItems = data.checklist.questions.filter((q: QuestionItem) => checked.has(q.id))
+      const uncheckedItems = data.checklist.questions.filter((q: QuestionItem) => !checked.has(q.id))
+
+      if (checkedItems.length > 0) {
+        lines.push('  已问过：')
+        checkedItems.forEach((q: QuestionItem) => {
+          lines.push(`    ☑ ${q.question}`)
+        })
+      }
+      if (uncheckedItems.length > 0) {
+        lines.push('  待问：')
+        uncheckedItems.forEach((q: QuestionItem) => {
+          lines.push(`    ☐ ${q.question}`)
+        })
+      }
+      lines.push('')
+    }
+
+    if (data.report) {
+      lines.push(`【报告解读 · ${data.report.result.reportType}】`)
+      data.report.result.indicators.forEach((ind) => {
+        const tag = ind.abnormal ? '⚠' : '✓'
+        lines.push(`  ${tag} ${ind.name}：${ind.explanation}`)
+      })
+      if (data.report.result.followUpQuestions.length > 0) {
+        lines.push('  复诊追问：')
+        data.report.result.followUpQuestions.forEach((q: string, i: number) => {
+          lines.push(`    ${i + 1}. ${q}`)
+        })
+      }
+      lines.push('')
+    }
+
+    if (data.postVisit) {
+      lines.push('【诊后备忘】')
+      const pv = data.postVisit.data
+      if (pv.doctorSummary.length > 0) {
+        lines.push('  医生告知：')
+        pv.doctorSummary.forEach((s: string) => lines.push(`    · ${s}`))
+      }
+      if (pv.medications.length > 0) {
+        lines.push('  用药清单：')
+        pv.medications.forEach((m, i) => {
+          lines.push(`    ${i + 1}. ${m.name} — ${m.dosage}（${m.notes}）`)
+        })
+      }
+      if (pv.followUps.length > 0) {
+        lines.push('  复查随访：')
+        pv.followUps.forEach((f) => lines.push(`    · ${f.condition} — ${f.items}`))
+      }
+      if (pv.warnings.length > 0) {
+        lines.push('  观察提醒：')
+        pv.warnings.forEach((s: string) => lines.push(`    · ${s}`))
+      }
+      lines.push('')
+    }
+
+    if (comparison) {
+      lines.push(formatComparisonForText(comparison))
+    }
+
+    lines.push('═'.repeat(30))
+    lines.push('本资料由「陪诊锦囊 MedPrep」生成，仅供参考')
+    return lines.join('\n')
+  }, [generateTime, comparison])
+
+  // 复制全文
+  const handleCopyAll = useCallback(async () => {
+    const text = formatFullText(data)
+    try {
+      await navigator.clipboard.writeText(text)
+    } catch {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    showToast('已复制全文，可粘贴到微信发送给家人')
+  }, [data, formatFullText, showToast])
+
+  // 打印友好视图
+  const handlePrintView = useCallback(() => {
+    const text = formatFullText(data)
+    const w = window.open('', '_blank', 'width=800,height=600')
+    if (!w) {
+      showToast('请允许弹出窗口以查看打印视图')
+      return
+    }
+    w.document.write(`<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>陪诊锦囊 · 就诊资料</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      font-size: 16px;
+      line-height: 1.8;
+      color: #1a1a1a;
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 40px 24px;
+      background: #fff;
+    }
+    h1 { font-size: 22px; text-align: center; margin-bottom: 4px; color: #333; }
+    .time { text-align: center; color: #999; font-size: 14px; margin-bottom: 24px; }
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 17px; font-weight: 700; color: #F97316; border-bottom: 2px solid #FED7AA; padding-bottom: 4px; margin-bottom: 10px; }
+    .item { margin-bottom: 6px; padding-left: 12px; }
+    .tag { display: inline-block; font-size: 12px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 13px; }
+    @media print {
+      body { padding: 20px; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="no-print" style="text-align:right;margin-bottom:16px;">
+    <button onclick="window.print()" style="padding:8px 20px;background:#F97316;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">打印</button>
+  </div>
+  <h1>陪诊锦囊 · 本次就诊资料</h1>
+  <p class="time">生成时间：${generateTime}</p>
+  ${buildPrintHtml(data, comparison)}
+  <p class="footer">本资料由「陪诊锦囊 MedPrep」生成，仅供参考</p>
+</body>
+</html>`)
+    w.document.close()
+  }, [data, formatFullText, generateTime, showToast, comparison])
+
+  // 保存本次就诊
+  const handleSave = useCallback(() => {
+    if (!hasAnyData) {
+      showToast('暂无数据可保存')
+      return
+    }
+    saveToHistory()
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+    showToast('已保存到就诊历史')
+  }, [hasAnyData, showToast])
+
+  // 生成分享链接
+  const handleGenerateShare = useCallback(() => {
+    if (!hasAnyData) {
+      showToast('暂无数据可分享')
+      return
+    }
+    const url = encodeShareData(data)
+    setShareUrl(url)
+    setShowShareDialog(true)
+  }, [hasAnyData, data, showToast])
+
+  // 复制分享链接
+  const handleCopyLink = useCallback(async () => {
+    const ok = await copyToClipboard(shareUrl)
+    if (ok) {
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 2000)
+      showToast('分享链接已复制')
+    }
+  }, [shareUrl, showToast])
+
+  return (
+    <div className="relative">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-2xl shadow-lg animate-[fadeIn_0.2s_ease-out]">
+          {toast}
+        </div>
+      )}
+
+      {/* 页面标题 */}
+      <div className="text-center mb-6">
+        <h1 className="text-xl sm:text-2xl font-bold text-gray-800">陪诊锦囊 · 本次就诊资料</h1>
+        <p className="text-sm text-gray-400 mt-1">生成时间：{generateTime}</p>
+      </div>
+
+      {/* 操作按钮 */}
+      <div className="flex gap-2 mb-6">
+        <button
+          onClick={handleCopyAll}
+          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-orange-200 text-orange-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px]"
+        >
+          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+          {copied ? '已复制' : '复制全文'}
+        </button>
+        <button
+          onClick={handlePrintView}
+          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-blue-200 text-blue-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-blue-50 active:scale-[0.98] transition-all min-h-[48px]"
+        >
+          <Printer className="w-4 h-4" />
+          打印视图
+        </button>
+        <button
+          onClick={handleSave}
+          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-orange-500 text-white text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-[0.98] transition-all min-h-[48px]"
+        >
+          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+          {saved ? '已保存' : '保存本次就诊'}
+        </button>
+      </div>
+
+      {/* 分享按钮行 */}
+      {hasAnyData && (
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={handleGenerateShare}
+            className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-green-200 text-green-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-green-50 active:scale-[0.98] transition-all min-h-[48px]"
+          >
+            <Share2 className="w-4 h-4" />
+            生成分享链接
+          </button>
+          <button
+            onClick={() => {
+              handleGenerateShare()
+              setShowQr(true)
+            }}
+            className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-purple-200 text-purple-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-purple-50 active:scale-[0.98] transition-all min-h-[48px]"
+          >
+            <QrCode className="w-4 h-4" />
+            生成二维码
+          </button>
+        </div>
+      )}
+
+      {/* 无数据提示 */}
+      {!hasAnyData && (
+        <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-10 text-center">
+          <div className="bg-orange-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5">
+            <FolderOpen className="w-10 h-10 text-orange-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-700 mb-2">暂无就诊资料</h3>
+          <p className="text-gray-500 text-sm mb-6">
+            使用下方功能模块填写就诊信息后，将自动汇总到此页面
+          </p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <button onClick={() => setActiveTab('timeline')} className="text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl px-4 py-2 transition-colors">
+              去填写症状时间线
+            </button>
+            <button onClick={() => setActiveTab('checklist')} className="text-sm text-green-600 bg-green-50 hover:bg-green-100 rounded-xl px-4 py-2 transition-colors">
+              去填写问诊清单
+            </button>
+            <button onClick={() => setActiveTab('report')} className="text-sm text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-xl px-4 py-2 transition-colors">
+              去填写报告解读
+            </button>
+            <button onClick={() => setActiveTab('postvisit')} className="text-sm text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl px-4 py-2 transition-colors">
+              去填写诊后备忘
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 症状时间线 */}
+      <SectionCard
+        icon={<Clock className="w-5 h-5 text-orange-500" />}
+        title="症状时间线"
+        color="orange"
+        hasData={!!data.timeline}
+        onJump={() => setActiveTab('timeline')}
+      >
+        {data.timeline && (
+          <div className="relative">
+            <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-orange-200 rounded-full" />
+            {data.timeline.entries.map((entry, i) => (
+              <div key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
+                <div className="relative z-10 flex-shrink-0 mt-1">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                    i === 0 ? 'bg-orange-500 text-white' : 'bg-white border-2 border-orange-300 text-orange-600'
+                  }`}>
+                    {i + 1}
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-semibold text-gray-800">{entry.dateLabel}</span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      entry.severity === '轻' ? 'bg-green-100 text-green-700' :
+                      entry.severity === '中' ? 'bg-amber-100 text-amber-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {SEVERITY_LABELS[entry.severity]}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 leading-relaxed">{entry.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 问诊清单 */}
+      <SectionCard
+        icon={<ClipboardList className="w-5 h-5 text-green-500" />}
+        title="问诊清单"
+        color="green"
+        hasData={!!data.checklist}
+        onJump={() => setActiveTab('checklist')}
+      >
+        {data.checklist && (() => {
+          const checked = new Set(data.checklist.checkedIds)
+          const checkedItems = data.checklist.questions.filter((q) => checked.has(q.id))
+          const uncheckedItems = data.checklist.questions.filter((q) => !checked.has(q.id))
+          return (
+            <div className="space-y-4">
+              {checkedItems.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-green-700 mb-2 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    已问过（{checkedItems.length}条）
+                  </h4>
+                  <div className="space-y-1.5">
+                    {checkedItems.map((q) => (
+                      <div key={q.id} className="flex items-start gap-2 text-sm text-gray-500 line-through bg-green-50/50 rounded-lg px-3 py-2">
+                        <Check className="w-4 h-4 text-green-400 flex-shrink-0 mt-0.5" />
+                        <span>{q.question}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {uncheckedItems.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-gray-600 mb-2 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-gray-400" />
+                    待问（{uncheckedItems.length}条）
+                  </h4>
+                  <div className="space-y-1.5">
+                    {uncheckedItems.map((q) => (
+                      <div key={q.id} className="flex items-start gap-2 text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                        <span className="w-4 h-4 rounded border-2 border-gray-300 flex-shrink-0 mt-0.5" />
+                        <span>{q.question}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </SectionCard>
+
+      {/* 报告解读 */}
+      <SectionCard
+        icon={<FileText className="w-5 h-5 text-blue-500" />}
+        title="报告解读"
+        color="blue"
+        hasData={!!data.report}
+        onJump={() => setActiveTab('report')}
+      >
+        {data.report && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <div className="bg-blue-50 rounded-lg p-1.5">
+                <Stethoscope className="w-4 h-4 text-blue-500" />
+              </div>
+              <span className="text-sm font-semibold text-blue-700">{data.report.result.reportType}</span>
+            </div>
+            <div className="space-y-2.5">
+              {data.report.result.indicators.map((ind, i) => (
+                <div key={i} className={`rounded-xl px-3 py-2.5 text-sm ${
+                  ind.abnormal ? 'bg-amber-50 border border-amber-100' : 'bg-gray-50'
+                }`}>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-medium text-gray-800">{ind.name}</span>
+                    {ind.abnormal && (
+                      <span className="text-xs bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded">建议向医生确认</span>
+                    )}
+                  </div>
+                  <p className="text-gray-600 text-xs leading-relaxed">{ind.explanation}</p>
+                </div>
+              ))}
+            </div>
+            {data.report.result.followUpQuestions.length > 0 && (
+              <div className="mt-3 space-y-1.5">
+                <p className="text-xs font-medium text-gray-500">复诊追问建议</p>
+                {data.report.result.followUpQuestions.map((q, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-blue-700 bg-blue-50 rounded-lg px-3 py-2">
+                    <span className="font-bold">{i + 1}.</span>
+                    <span>{q}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* 诊后备忘 */}
+      <SectionCard
+        icon={<NotebookPen className="w-5 h-5 text-purple-500" />}
+        title="诊后备忘"
+        color="purple"
+        hasData={!!data.postVisit}
+        onJump={() => setActiveTab('postvisit')}
+      >
+        {data.postVisit && (() => {
+          const pv = data.postVisit.data
+          return (
+            <div className="space-y-4">
+              {pv.doctorSummary.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-blue-700 mb-1.5 flex items-center gap-1.5">
+                    <Stethoscope className="w-3.5 h-3.5" />
+                    医生告知摘要
+                  </h4>
+                  <ul className="space-y-1">
+                    {pv.doctorSummary.map((s, i) => (
+                      <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {pv.medications.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-green-700 mb-1.5 flex items-center gap-1.5">
+                    <Pill className="w-3.5 h-3.5" />
+                    用药清单
+                  </h4>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-100">
+                          <th className="text-left py-1.5 pr-2 font-medium text-gray-500">药品</th>
+                          <th className="text-left py-1.5 pr-2 font-medium text-gray-500">用法用量</th>
+                          <th className="text-left py-1.5 font-medium text-gray-500">注意事项</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pv.medications.map((med, i) => (
+                          <tr key={i} className="border-b border-gray-50 last:border-0">
+                            <td className="py-2 pr-2 text-gray-800 font-medium">{med.name}</td>
+                            <td className="py-2 pr-2 text-gray-600">{med.dosage}</td>
+                            <td className="py-2 text-gray-600">{med.notes}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+              {pv.followUps.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-purple-700 mb-1.5 flex items-center gap-1.5">
+                    <CalendarClock className="w-3.5 h-3.5" />
+                    复查随访
+                  </h4>
+                  <div className="space-y-1.5">
+                    {pv.followUps.map((fu, i) => (
+                      <div key={i} className="flex items-start gap-2 text-sm bg-purple-50 rounded-lg px-3 py-2">
+                        <span className="text-xs font-bold text-purple-500">{i + 1}.</span>
+                        <span className="text-purple-800">{fu.condition} — {fu.items}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {pv.warnings.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-red-600 mb-1.5 flex items-center gap-1.5">
+                    <Eye className="w-3.5 h-3.5" />
+                    观察提醒
+                  </h4>
+                  <ul className="space-y-1">
+                    {pv.warnings.map((s, i) => (
+                      <li key={i} className="text-sm text-gray-600 flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0 mt-0.5" />
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-red-500 bg-red-50 rounded-lg px-3 py-2">
+                    出现以上情况请及时就医
+                  </p>
+                </div>
+              )}
+            </div>
+          )
+        })()}
+      </SectionCard>
+
+      {/* 复诊对比 */}
+      {comparison ? (
+        <ComparisonSection
+          comparison={comparison}
+          expanded={comparisonExpanded}
+          onToggle={() => setComparisonExpanded(!comparisonExpanded)}
+        />
+      ) : hasAnyData ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-orange-100 border-l-4 border-l-teal-400 mb-4 overflow-hidden">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div className="flex items-center gap-2.5">
+              <GitCompare className="w-5 h-5 text-teal-500" />
+              <h3 className="text-base font-semibold text-gray-800">复诊对比</h3>
+            </div>
+          </div>
+          <div className="p-4 text-center">
+            <p className="text-sm text-gray-400">保存本次就诊后，下次可自动对比</p>
+            <button
+              onClick={handleSave}
+              className="mt-2 text-sm text-orange-500 hover:text-orange-600 underline underline-offset-2"
+            >
+              保存本次就诊
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {/* 底部 */}
+      <div className="mt-6 text-center">
+        <p className="text-xs text-gray-400">本资料由「陪诊锦囊 MedPrep」生成，仅供参考</p>
+        <p className="text-xs text-gray-400 mt-1">不构成医疗诊断或治疗建议</p>
+      </div>
+
+      {/* 安全提示弹窗 */}
+      {showShareDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
+            {/* 弹窗头部 */}
+            <div className="bg-amber-500 px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white">
+                <ShieldAlert className="w-5 h-5" />
+                <h3 className="font-semibold">安全提醒</h3>
+              </div>
+              <button
+                onClick={() => setShowShareDialog(false)}
+                className="text-white/80 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 弹窗内容 */}
+            <div className="p-5 space-y-4">
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-800 leading-relaxed">
+                  链接内含就诊信息，任何人打开链接均可查看。请勿公开传播，仅分享给信任的家人。
+                </p>
+              </div>
+
+              {/* 分享链接 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1.5">分享链接</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={shareUrl}
+                    className="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-600 bg-gray-50 focus:outline-none"
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className="flex items-center gap-1.5 bg-orange-500 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all flex-shrink-0"
+                  >
+                    {linkCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {linkCopied ? '已复制' : '复制'}
+                  </button>
+                </div>
+              </div>
+
+              {/* 二维码 */}
+              {showQr && (
+                <div className="text-center">
+                  <p className="text-sm font-medium text-gray-600 mb-3">扫码查看</p>
+                  <div className="inline-block bg-white p-3 rounded-xl border border-gray-200">
+                    <QRCodeSVG value={shareUrl} size={160} level="M" />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-2">微信扫码即可打开</p>
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setShowShareDialog(false)
+                  setShowQr(false)
+                }}
+                className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+              >
+                我知道了
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 分区卡片 */
+function SectionCard({
+  icon,
+  title,
+  color,
+  hasData,
+  onJump,
+  children,
+}: {
+  icon: React.ReactNode
+  title: string
+  color: 'orange' | 'green' | 'blue' | 'purple'
+  hasData: boolean
+  onJump: () => void
+  children?: React.ReactNode
+}) {
+  const borderMap = {
+    orange: 'border-l-orange-400',
+    green: 'border-l-green-400',
+    blue: 'border-l-blue-400',
+    purple: 'border-l-purple-400',
+  }
+
+  return (
+    <div className={`bg-white rounded-2xl shadow-sm border border-orange-100 border-l-4 ${borderMap[color]} mb-4 overflow-hidden`}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+        <div className="flex items-center gap-2.5">
+          {icon}
+          <h3 className="text-base font-semibold text-gray-800">{title}</h3>
+        </div>
+        {hasData ? (
+          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">已填写</span>
+        ) : (
+          <button
+            onClick={onJump}
+            className="flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500 transition-colors"
+          >
+            尚未填写
+            <ExternalLink className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+      {hasData && <div className="p-4">{children}</div>}
+      {!hasData && (
+        <div className="p-4 text-center">
+          <p className="text-sm text-gray-400">暂无数据</p>
+          <button
+            onClick={onJump}
+            className="mt-2 text-sm text-orange-500 hover:text-orange-600 underline underline-offset-2"
+          >
+            前往填写
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** 构建打印 HTML */
+function buildPrintHtml(data: VisitData, comparison: VisitComparison | null): string {
+  const parts: string[] = []
+
+  if (data.timeline) {
+    parts.push('<div class="section"><div class="section-title">症状时间线</div>')
+    data.timeline.entries.forEach((e, i) => {
+      const sev = { '轻': '轻度', '中': '中度', '重': '重度' }[e.severity]
+      parts.push(`<div class="item"><strong>${i + 1}. ${e.dateLabel}</strong> <span class="tag">${sev}</span><br>${e.description}</div>`)
+    })
+    parts.push('</div>')
+  }
+
+  if (data.checklist) {
+    const checked = new Set(data.checklist.checkedIds)
+    const checkedItems = data.checklist.questions.filter((q) => checked.has(q.id))
+    const uncheckedItems = data.checklist.questions.filter((q) => !checked.has(q.id))
+    parts.push('<div class="section"><div class="section-title">问诊清单</div>')
+    if (checkedItems.length > 0) {
+      parts.push('<p style="color:#16a34a;font-weight:600;">已问过：</p>')
+      checkedItems.forEach((q) => parts.push(`<div class="item">☑ ${q.question}</div>`))
+    }
+    if (uncheckedItems.length > 0) {
+      parts.push('<p style="color:#6b7280;font-weight:600;">待问：</p>')
+      uncheckedItems.forEach((q) => parts.push(`<div class="item">☐ ${q.question}</div>`))
+    }
+    parts.push('</div>')
+  }
+
+  if (data.report) {
+    parts.push(`<div class="section"><div class="section-title">报告解读 · ${data.report.result.reportType}</div>`)
+    data.report.result.indicators.forEach((ind) => {
+      const tag = ind.abnormal ? '<span class="tag" style="background:#fef3c7;color:#92400e;">建议向医生确认</span>' : ''
+      parts.push(`<div class="item"><strong>${ind.name}</strong> ${tag}<br>${ind.explanation}</div>`)
+    })
+    if (data.report.result.followUpQuestions.length > 0) {
+      parts.push('<p style="font-weight:600;margin-top:8px;">复诊追问：</p>')
+      data.report.result.followUpQuestions.forEach((q, i) => parts.push(`<div class="item">${i + 1}. ${q}</div>`))
+    }
+    parts.push('</div>')
+  }
+
+  if (data.postVisit) {
+    const pv = data.postVisit.data
+    parts.push('<div class="section"><div class="section-title">诊后备忘</div>')
+    if (pv.doctorSummary.length > 0) {
+      parts.push('<p style="font-weight:600;">医生告知：</p>')
+      pv.doctorSummary.forEach((s) => parts.push(`<div class="item">· ${s}</div>`))
+    }
+    if (pv.medications.length > 0) {
+      parts.push('<p style="font-weight:600;">用药清单：</p>')
+      pv.medications.forEach((m, i) => parts.push(`<div class="item">${i + 1}. ${m.name} — ${m.dosage}（${m.notes}）</div>`))
+    }
+    if (pv.followUps.length > 0) {
+      parts.push('<p style="font-weight:600;">复查随访：</p>')
+      pv.followUps.forEach((f) => parts.push(`<div class="item">· ${f.condition} — ${f.items}</div>`))
+    }
+    if (pv.warnings.length > 0) {
+      parts.push('<p style="font-weight:600;">观察提醒：</p>')
+      pv.warnings.forEach((s) => parts.push(`<div class="item">· ${s}</div>`))
+    }
+    parts.push('</div>')
+  }
+
+  if (comparison) {
+    parts.push(formatComparisonForHtml(comparison))
+  }
+
+  return parts.join('\n')
+}
+
+/** 复诊对比折叠卡片 */
+function ComparisonSection({
+  comparison,
+  expanded,
+  onToggle,
+}: {
+  comparison: VisitComparison
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const trendConfig: Record<SymptomTrend, { icon: React.ReactNode; label: string; color: string; bg: string }> = {
+    improved: { icon: <TrendingDown className="w-4 h-4" />, label: '改善', color: 'text-green-600', bg: 'bg-green-50' },
+    unchanged: { icon: <Minus className="w-4 h-4" />, label: '未变', color: 'text-gray-500', bg: 'bg-gray-50' },
+    worsened: { icon: <TrendingUp className="w-4 h-4" />, label: '加重', color: 'text-red-500', bg: 'bg-red-50' },
+    new: { icon: <Plus className="w-4 h-4" />, label: '新增', color: 'text-blue-600', bg: 'bg-blue-50' },
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-orange-100 border-l-4 border-l-teal-400 mb-4 overflow-hidden">
+      {/* 标题栏 */}
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center gap-2.5">
+          <GitCompare className="w-5 h-5 text-teal-500" />
+          <h3 className="text-base font-semibold text-gray-800">复诊对比</h3>
+          <span className="text-xs text-gray-400">对比 {comparison.prevLabel}</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">有数据</span>
+          {expanded ? (
+            <ChevronUp className="w-5 h-5 text-gray-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-gray-400" />
+          )}
+        </div>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 space-y-4">
+          {/* 免责声明 */}
+          <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-800">对比基于用户自行记录，不能替代医疗判断</p>
+          </div>
+
+          {/* 症状变化 */}
+          {comparison.symptomComparison.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">症状变化</h4>
+              <div className="space-y-2">
+                {comparison.symptomComparison.map((s, i) => {
+                  const cfg = trendConfig[s.trend]
+                  const prevLabel = s.prevSeverity
+                    ? `上次：${s.prevSeverity === '轻' ? '轻度' : s.prevSeverity === '中' ? '中度' : '重度'}`
+                    : ''
+                  const currLabel = s.currSeverity
+                    ? `本次：${s.currSeverity === '轻' ? '轻度' : s.currSeverity === '中' ? '中度' : '重度'}`
+                    : ''
+                  return (
+                    <div key={i} className={`${cfg.bg} rounded-xl px-3 py-2.5`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+                          {cfg.icon}
+                          {cfg.label}
+                        </span>
+                        {prevLabel && (
+                          <span className="text-xs text-gray-400">{prevLabel}</span>
+                        )}
+                        {currLabel && (
+                          <>
+                            <span className="text-xs text-gray-300">→</span>
+                            <span className="text-xs text-gray-600">{currLabel}</span>
+                          </>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-700 leading-relaxed">{s.description}</p>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 随访完成度 */}
+          {comparison.followUpStatus.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
+                随访完成度
+                <span className="text-xs font-normal text-gray-400">（供参考）</span>
+              </h4>
+              <div className="space-y-2">
+                {comparison.followUpStatus.map((f, i) => (
+                  <div key={i} className="bg-gray-50 rounded-xl px-3 py-2.5">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      {f.completed === true ? (
+                        <span className="text-xs text-green-600 bg-green-100 px-1.5 py-0.5 rounded">已完成</span>
+                      ) : f.completed === null ? (
+                        <span className="text-xs text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded">待确认</span>
+                      ) : (
+                        <span className="text-xs text-gray-400 bg-gray-200 px-1.5 py-0.5 rounded">—</span>
+                      )}
+                      <span className="text-sm font-medium text-gray-700">{f.item}</span>
+                    </div>
+                    <p className="text-xs text-gray-400">{f.detail}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 建议重点问医生 */}
+          {comparison.suggestedQuestions.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">本次建议重点问医生</h4>
+              <div className="space-y-2">
+                {comparison.suggestedQuestions.map((q, i) => (
+                  <div key={i} className="flex items-start gap-2.5 bg-teal-50 rounded-xl px-3 py-2.5">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-teal-500 text-white text-xs font-bold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <p className="text-sm text-teal-900 leading-relaxed">{q}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
