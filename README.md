@@ -140,7 +140,7 @@ src/
     ├── visitStore.ts           # localStorage 统一读写
     ├── compareVisits.ts        # 复诊对比引擎
     └── shareUtils.ts           # 分享链接编码/解码
-
+```
 ## 可用脚本
 
 | 命令 | 说明 |
