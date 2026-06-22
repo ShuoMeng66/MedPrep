@@ -115,7 +115,23 @@ src/
 
 ## 部署
 
-本项目使用 **GitHub Actions** 自动部署到 GitHub Pages。推送代码到 `master` 分支即可触发自动构建和部署。
+### 方案一：Vercel（推荐 · 国内访问快）
+
+Vercel 在亚太地区有边缘节点，国内访问速度优于 GitHub Pages。
+
+**一键部署（Web 控制台）：**
+
+1. 打开 [vercel.com/new](https://vercel.com/new)
+2. 点击 **Import** → 选择 **GitHub** → 授权并选择 `ShuoMeng66/MedPrep`
+3. Vercel 自动识别 Vite 框架，无需任何配置
+4. 点击 **Deploy**，等待 30 秒完成
+5. 获得体验链接，格式：`https://medprep-xxx.vercel.app`
+
+**后续更新**：每次 push 到 `master`，Vercel 自动重新部署。
+
+### 方案二：GitHub Pages
+
+本项目同时配置了 GitHub Actions 自动部署到 GitHub Pages。
 
 ```mermaid
 flowchart LR
@@ -125,12 +141,12 @@ flowchart LR
     D --> E["GitHub Pages 生效"]
 ```
 
-### 自动部署
-
 ```bash
 git add . && git commit -m "..." && git push origin master
 # 推送后 GitHub Actions 自动执行构建和部署
 ```
+
+> 需在 [Pages 设置](https://github.com/ShuoMeng66/MedPrep/settings/pages) 中将 Source 设为 `gh-pages` 分支。
 
 ### 本地构建验证
 
@@ -141,7 +157,10 @@ npm run preview     # 本地预览构建产物
 
 ### 部署地址
 
-**在线体验**：[https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/)
+| 平台 | 地址 | 国内访问 |
+|------|------|----------|
+| Vercel | `https://medprep-xxx.vercel.app`（部署后获得） | 快 |
+| GitHub Pages | [https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/) | 一般 |
 
 > 部署状态可在 [Actions 页面](https://github.com/ShuoMeng66/MedPrep/actions) 查看。
 
