@@ -190,17 +190,6 @@ wrangler deploy
 VITE_AI_PROXY_URL=https://medprep-ai-proxy.你的账号.workers.dev
 ```
 
-### Vercel（推荐 · 国内访问友好）
-
-Vercel 在亚太地区有边缘节点，国内访问速度优于 GitHub Pages。
-
-1. 打开 [vercel.com/new](https://vercel.com/new)
-2. 点击 **Import** → 选择 **GitHub** → 授权并选择 `ShuoMeng66/MedPrep`
-3. Vercel 自动识别 Vite 框架，无需额外配置
-4. 点击 **Deploy**，约 30 秒完成部署
-5. 获得体验链接，格式：`https://medprep-xxx.vercel.app`
-
-> 后续每次 push 到 `master` 分支，Vercel 会自动重新部署。
 
 ### GitHub Pages
 
@@ -225,7 +214,6 @@ git push origin master
 
 | 平台 | 地址 | 国内访问 |
 |------|------|----------|
-| Vercel | `https://medprep-xxx.vercel.app`（部署后获得） | 快 |
 | GitHub Pages | [https://shuomeng66.github.io/MedPrep/](https://shuomeng66.github.io/MedPrep/) | 一般 |
 
 > 部署状态可在 [Actions 页面](https://github.com/ShuoMeng66/MedPrep/actions) 查看。
