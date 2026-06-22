@@ -9,9 +9,9 @@ export default function Home() {
   const activeTab = useTabStore((s) => s.activeTab)
 
   return (
-    <div className="min-h-screen bg-orange-50/50 flex justify-center">
-      <div className="w-full max-w-[480px] pb-10">
-        <Header />
+    <div className="min-h-screen bg-orange-50/50">
+      <Header />
+      <div className="max-w-6xl mx-auto px-4 pb-12">
         <TabBar />
         {activeTab === 'timeline' && <SymptomTimeline />}
         {activeTab === 'checklist' && <ConsultChecklist />}

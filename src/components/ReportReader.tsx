@@ -7,11 +7,9 @@ import {
   Check,
   Loader2,
   X,
-  ImageIcon,
   Copy,
   Lightbulb,
   Stethoscope,
-  ChevronRight,
 } from 'lucide-react'
 import {
   interpretReport,
@@ -151,7 +149,7 @@ export default function ReportReader() {
   // 空状态：初始界面
   if (!result && !loading) {
     return (
-      <div className="px-4">
+      <div className="">
         {/* 上传区域 */}
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-6">
           <label className="block text-base font-semibold text-gray-700 mb-2">
@@ -277,7 +275,7 @@ export default function ReportReader() {
   // 加载状态
   if (loading) {
     return (
-      <div className="px-4">
+      <div className="">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-12 text-center">
           <Loader2 className="w-10 h-10 text-blue-500 animate-spin mx-auto mb-4" />
           <p className="text-gray-500 text-base mb-1">正在分析报告指标…</p>
@@ -289,7 +287,7 @@ export default function ReportReader() {
 
   // 结果展示
   return (
-    <div className="px-4">
+    <div className="">
       {/* 头部 */}
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-800">报告解读</h2>

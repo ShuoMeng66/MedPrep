@@ -149,7 +149,7 @@ export default function ConsultChecklist() {
   // 空状态
   if (questions.length === 0 && !loading) {
     return (
-      <div className="px-4">
+      <div className="">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-6">
           <label className="block text-base font-semibold text-gray-700 mb-2">
             描述您的症状
@@ -227,7 +227,7 @@ export default function ConsultChecklist() {
   // 加载状态
   if (loading) {
     return (
-      <div className="px-4">
+      <div className="">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-12 text-center">
           <Loader2 className="w-10 h-10 text-green-500 animate-spin mx-auto mb-4" />
           <p className="text-gray-500 text-base">正在生成问诊问题清单…</p>
@@ -238,7 +238,7 @@ export default function ConsultChecklist() {
 
   // 问题清单
   return (
-    <div className="px-4">
+    <div className="">
       {/* 头部 + 统计 */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">

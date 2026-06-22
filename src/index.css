@@ -17,19 +17,11 @@ body {
   background-color: #FFF7ED;
 }
 
-/* 移动端触摸优化 */
 button, a {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 更大字号适配中老年用户 */
 html {
   font-size: 16px;
-}
-
-@media (min-width: 480px) {
-  html {
-    font-size: 18px;
-  }
 }

@@ -74,7 +74,7 @@ export default function SymptomTimeline() {
   // 空状态：还没生成过
   if (entries.length === 0 && !loading) {
     return (
-      <div className="px-4">
+      <div className="">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-6">
           {/* 输入区域 */}
           <label className="block text-base font-semibold text-gray-700 mb-2">
@@ -156,7 +156,7 @@ export default function SymptomTimeline() {
   // 加载状态
   if (loading) {
     return (
-      <div className="px-4">
+      <div className="">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-12 text-center">
           <Loader2 className="w-10 h-10 text-orange-400 animate-spin mx-auto mb-4" />
           <p className="text-gray-500 text-base">正在分析症状描述，生成时间线…</p>
@@ -167,7 +167,7 @@ export default function SymptomTimeline() {
 
   // 展示时间线
   return (
-    <div className="px-4">
+    <div className="">
       {/* 重新输入按钮 */}
       <div className="flex items-center gap-3 mb-4">
         <h2 className="text-lg font-semibold text-gray-800">症状时间线</h2>
