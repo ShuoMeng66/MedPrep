@@ -4,7 +4,9 @@ import { useAuth } from '@/contexts/AuthContext'
 import {
   Stethoscope, Mail, Lock, UserPlus, LogIn, Eye, EyeOff,
   Sparkles, AlertCircle, ChevronDown, ChevronUp, Send, ArrowRight,
+  Activity, CheckCircle, XCircle, Loader,
 } from 'lucide-react'
+import { supabase } from '@/lib/supabaseClient'
 
 type AuthMode = 'login' | 'register' | 'magiclink'
 
@@ -20,6 +22,8 @@ export default function Login() {
   const [toast, setToast] = useState('')
   const [busy, setBusy] = useState(false)
   const [disclaimerExpanded, setDisclaimerExpanded] = useState(false)
+  const [diagnosing, setDiagnosing] = useState(false)
+  const [diagResults, setDiagResults] = useState<Array<{ name: string; status: 'success' | 'fail'; time: number; error?: string }>>([])
 
   const clearMessages = () => { setError(''); setToast('') }
 
@@ -92,6 +96,61 @@ export default function Login() {
     } else {
       setToast('重置密码邮件已发送，请前往邮箱查收')
     }
+  }
+
+  const runDiagnostic = async () => {
+    setDiagnosing(true)
+    setDiagResults([])
+
+    const tests = [
+      {
+        name: 'Auth API',
+        run: async () => {
+          const start = performance.now()
+          const res = await fetch('https://wdqifmyugeqjkharondv.supabase.co/auth/v1/health')
+          const time = Math.round(performance.now() - start)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return { name: 'Auth API', status: 'success' as const, time }
+        },
+      },
+      {
+        name: 'REST API',
+        run: async () => {
+          const start = performance.now()
+          const res = await fetch('https://wdqifmyugeqjkharondv.supabase.co/rest/v1/', {
+            headers: { apikey: 'sb_publishable_xNPDB3kM2pgVdcNN-HcxTw_ADvO1Z1V' },
+          })
+          const time = Math.round(performance.now() - start)
+          if (!res.ok) throw new Error(`HTTP ${res.status}`)
+          return { name: 'REST API', status: 'success' as const, time }
+        },
+      },
+      {
+        name: '匿名登录',
+        run: async () => {
+          const start = performance.now()
+          const { error } = await supabase.auth.signInAnonymously()
+          const time = Math.round(performance.now() - start)
+          if (error) throw new Error(error.message)
+          await supabase.auth.signOut()
+          return { name: '匿名登录', status: 'success' as const, time }
+        },
+      },
+    ]
+
+    const results = await Promise.allSettled(tests.map((t) => t.run()))
+    setDiagResults(
+      results.map((r, i) => {
+        if (r.status === 'fulfilled') return r.value
+        return {
+          name: tests[i].name,
+          status: 'fail' as const,
+          time: 0,
+          error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+        }
+      })
+    )
+    setDiagnosing(false)
   }
 
   return (
@@ -295,6 +354,47 @@ export default function Login() {
                   通过分享链接发送的就诊资料，任何获得链接的人均可查看，请勿公开传播。
                 </li>
               </ul>
+            </div>
+          )}
+        </div>
+
+        {/* 诊断连接 */}
+        <div className="mt-4">
+          <button
+            onClick={runDiagnostic}
+            disabled={diagnosing}
+            className="flex items-center gap-1.5 text-xs text-orange-400 hover:text-orange-500 transition-colors disabled:opacity-50 mx-auto"
+          >
+            {diagnosing ? (
+              <Loader className="w-3 h-3 animate-spin" />
+            ) : (
+              <Activity className="w-3 h-3" />
+            )}
+            连接诊断
+          </button>
+
+          {diagResults.length > 0 && (
+            <div className="mt-3 bg-white rounded-xl border border-orange-100 overflow-hidden">
+              {diagResults.map((item) => (
+                <div
+                  key={item.name}
+                  className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-b-0"
+                >
+                  {item.status === 'success' ? (
+                    <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-red-500 flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-gray-700 flex-1">{item.name}</span>
+                  {item.status === 'success' ? (
+                    <span className="text-xs text-gray-400">{item.time}ms</span>
+                  ) : (
+                    <span className="text-xs text-red-500 max-w-[180px] truncate" title={item.error}>
+                      {item.error}
+                    </span>
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

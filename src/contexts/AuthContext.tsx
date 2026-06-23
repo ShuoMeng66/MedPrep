@@ -64,6 +64,15 @@ function buildLocalProfile(user: User): Profile {
   }
 }
 
+/** 仅用 userId 生成本地 profile（不依赖 user 对象，避免 non-null assertion） */
+function makeLocalProfile(userId: string, nickname?: string): Profile {
+  return {
+    id: userId,
+    nickname: nickname || generateRandomNickname(),
+    avatar_url: null,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -87,11 +96,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (error) {
         if (isTableNotFoundError(error)) {
-          setProfile((prev) => prev || buildLocalProfile(user!))
+          setProfile((prev) => prev || makeLocalProfile(userId))
           return
         }
         console.warn('[MedPrep] 读取 profile 失败:', error.message)
-        setProfile((prev) => prev || buildLocalProfile(user!))
+        setProfile((prev) => prev || makeLocalProfile(userId))
         return
       }
 
@@ -99,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(data as Profile)
       } else {
         // 行不存在（老用户），尝试自动创建
-        const localProfile = buildLocalProfile(user!)
+        const localProfile = makeLocalProfile(userId)
         const { error: insertError } = await supabase
           .from('profiles')
           .insert({ id: userId, nickname: localProfile.nickname })
@@ -109,10 +118,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setProfile(localProfile)
       }
     } catch (e) {
-      console.warn('[MedPrep] 读取 profile 异常:', e)
-      setProfile((prev) => prev || buildLocalProfile(user!))
+      console.error('[MedPrep] fetchProfile 失败:', e)
+      setProfile((prev) => prev || makeLocalProfile(userId))
     }
-  }, [user])
+  }, [])
 
   // 监听认证状态变化
   useEffect(() => {
@@ -163,6 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return {}
     } catch (e: unknown) {
+      console.error('[MedPrep] signIn 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('ISO-8859') || msg.includes('headers')) {
         return { error: '连接认证服务失败，请刷新页面重试' }
@@ -186,6 +196,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return {}
     } catch (e: unknown) {
+      console.error('[MedPrep] signUp 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       return { error: msg }
     }
@@ -221,6 +232,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       return {}
     } catch (e: unknown) {
+      console.error('[MedPrep] signInAnonymously 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       if (msg.includes('ISO-8859') || msg.includes('headers')) {
         return { error: '连接认证服务失败，请刷新页面重试' }
@@ -246,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile((prev) => prev ? { ...prev, ...patch } : null)
       return {}
     } catch (e) {
+      console.error('[MedPrep] updateProfile 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       // 网络错误时仍然更新本地状态，但告知用户
       setProfile((prev) => prev ? { ...prev, ...patch } : null)
@@ -290,6 +303,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       fetchProfile(user.id)
       return {}
     } catch (e) {
+      console.error('[MedPrep] bindEmail 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       return { error: msg }
     }
@@ -329,6 +343,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateProfile({ avatar_url: urlData.publicUrl })
       return { url: urlData.publicUrl }
     } catch (e) {
+      console.error('[MedPrep] uploadAvatar 失败:', e)
       const msg = e instanceof Error ? e.message : String(e)
       return { error: msg }
     }
