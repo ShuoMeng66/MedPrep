@@ -29,14 +29,14 @@ export default function Header() {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => navigate('/history')}
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors active:scale-95 transition-transform"
               >
                 <Clock className="w-4 h-4" />
                 <span className="hidden sm:inline">历史记录</span>
               </button>
               <button
                 onClick={() => navigate('/settings')}
-                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors active:scale-95 transition-transform"
               >
                 <img
                   src={avatarUrl}

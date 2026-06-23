@@ -53,3 +53,15 @@ select {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+
+/* Button touch feedback */
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Ensure critical actions are always visible on mobile (no hover-only) */
+@media (hover: none) {
+  .hover-only {
+    display: none !important;
+  }
+}

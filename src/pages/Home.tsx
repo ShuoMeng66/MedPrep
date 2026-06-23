@@ -26,7 +26,7 @@ export default function Home() {
         <div className="max-w-lg mx-auto px-4 mb-4">
           <button
             onClick={() => navigate('/settings')}
-            className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-amber-100 transition-colors group"
+            className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-amber-100 transition-colors active:scale-95 transition-transform group"
           >
             <div className="flex items-center gap-2.5">
               <div className="bg-amber-200 rounded-lg p-1.5">
@@ -41,7 +41,7 @@ export default function Home() {
           </button>
         </div>
       )}
-      <div className="max-w-lg mx-auto px-4 pb-12 pb-safe">
+      <div className="max-w-lg mx-auto px-4 pb-24 pb-safe">
         <TabBar />
         {activeTab === 'timeline' && <SymptomTimeline />}
         {activeTab === 'checklist' && <ConsultChecklist />}
