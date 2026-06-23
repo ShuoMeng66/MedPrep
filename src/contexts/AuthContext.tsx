@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react'
 import type { User, Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabaseClient'
-import { getUnsyncedCount, getUnsyncedLocalHistory, markSynced } from '@/utils/visitStore'
+import { getUnsyncedCount } from '@/utils/visitStore'
 import { batchSyncLocalHistory } from '@/services/visitService'
 
 export interface Profile {
@@ -46,6 +46,24 @@ function generateRandomNickname(): string {
   return `用户${suffix}`
 }
 
+/**
+ * 判断错误是否为"表不存在"（SQL 未执行）
+ * 这类错误不应阻塞登录流程，应静默降级
+ */
+function isTableNotFoundError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error)
+  return msg.includes('Could not find') || msg.includes('schema cache') || msg.includes('relation') && msg.includes('does not exist')
+}
+
+/** 从 user 对象生成一个本地 profile（不依赖数据库） */
+function buildLocalProfile(user: User): Profile {
+  return {
+    id: user.id,
+    nickname: user.user_metadata?.nickname || generateRandomNickname(),
+    avatar_url: user.user_metadata?.avatar_url || null,
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -54,17 +72,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   /** 未同步的本地记录数量（用于弹窗） */
   const [unsyncedCount, setUnsyncedCount] = useState(0)
 
-  // 获取 profile
+  /**
+   * 从 Supabase 获取 profile
+   * 如果表不存在，静默降级为本地 profile（不影响登录）
+   */
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .single()
-    if (data) {
-      setProfile(data as Profile)
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        if (isTableNotFoundError(error)) {
+          // 表不存在，用本地 profile
+          setProfile((prev) => prev || buildLocalProfile(user!))
+          return
+        }
+        // 其他错误也是静默降级
+        console.warn('[MedPrep] 读取 profile 失败:', error.message)
+        setProfile((prev) => prev || buildLocalProfile(user!))
+        return
+      }
+
+      if (data) {
+        setProfile(data as Profile)
+      }
+    } catch (e) {
+      // 网络错误等，静默降级
+      console.warn('[MedPrep] 读取 profile 异常:', e)
+      setProfile((prev) => prev || buildLocalProfile(user!))
     }
-  }, [])
+  }, [user])
 
   // 监听认证状态变化
   useEffect(() => {
@@ -72,8 +112,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        // 先用本地 profile 兜底，再异步拉取云端数据
+        setProfile(buildLocalProfile(session.user))
         fetchProfile(session.user.id)
-        // 登录后检查是否有未同步的本地数据
         const count = getUnsyncedCount()
         if (count > 0) {
           setUnsyncedCount(count)
@@ -86,8 +127,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session)
       setUser(session?.user ?? null)
       if (session?.user) {
+        // 先用本地 profile 兜底
+        setProfile(buildLocalProfile(session.user))
         fetchProfile(session.user.id)
-        // SIGNED_IN 事件：登录成功时检查未同步数据
         if (event === 'SIGNED_IN') {
           const count = getUnsyncedCount()
           if (count > 0) {
@@ -103,71 +145,104 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [fetchProfile])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      const msg = error.message.includes('Invalid login')
-        ? '邮箱或密码错误'
-        : error.message
-      return { error: msg }
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        const msg = error.message.includes('Invalid login')
+          ? '邮箱或密码错误'
+          : error.message
+        return { error: msg }
+      }
+      return {}
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('ISO-8859') || msg.includes('headers')) {
+        return { error: '连接认证服务失败，请刷新页面重试' }
+      }
+      return { error: '登录失败，请稍后重试' }
     }
-    return {}
   }, [])
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { nickname: generateRandomNickname() },
-        emailRedirectTo: `${window.location.origin}/MedPrep/#/app`,
-      },
-    })
-    if (error) {
-      return { error: error.message }
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { nickname: generateRandomNickname() },
+          emailRedirectTo: `${window.location.origin}/MedPrep/#/app`,
+        },
+      })
+      if (error) {
+        return { error: error.message }
+      }
+      return {}
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { error: msg }
     }
-    return {}
   }, [])
 
   const signOut = useCallback(async () => {
-    await supabase.auth.signOut()
+    try {
+      await supabase.auth.signOut()
+    } catch {
+      // 即使 signOut 失败也清除本地状态
+    }
     setUser(null)
     setSession(null)
     setProfile(null)
   }, [])
 
   const signInAnonymously = useCallback(async () => {
-    const { data, error } = await supabase.auth.signInAnonymously()
-    if (error) {
-      return { error: error.message }
-    }
-    if (data.user) {
-      // 确保 profiles 中有记录
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('id', data.user.id)
-        .single()
-      if (!existing) {
-        await supabase.from('profiles').insert({
-          id: data.user.id,
-          nickname: generateRandomNickname(),
-        })
+    try {
+      const { data, error } = await supabase.auth.signInAnonymously()
+      if (error) {
+        return { error: error.message }
       }
+      // 匿名登录成功后，尝试插入 profile（表不存在时静默降级）
+      if (data.user) {
+        try {
+          await supabase.from('profiles').insert({
+            id: data.user.id,
+            nickname: generateRandomNickname(),
+          })
+        } catch {
+          // profiles 表不存在，静默降级，使用本地 profile
+        }
+      }
+      return {}
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e)
+      if (msg.includes('ISO-8859') || msg.includes('headers')) {
+        return { error: '连接认证服务失败，请刷新页面重试' }
+      }
+      return { error: '登录失败，请稍后重试' }
     }
-    return {}
   }, [])
 
   const updateProfile = useCallback(async (patch: Partial<Pick<Profile, 'nickname' | 'avatar_url'>>) => {
     if (!user) return { error: '未登录' }
-    const { error } = await supabase
-      .from('profiles')
-      .update(patch)
-      .eq('id', user.id)
-    if (error) {
-      return { error: error.message }
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(patch)
+        .eq('id', user.id)
+      if (error) {
+        // 表不存在时静默更新本地 profile
+        if (isTableNotFoundError(error)) {
+          setProfile((prev) => prev ? { ...prev, ...patch } : null)
+          return {}
+        }
+        return { error: error.message }
+      }
+      setProfile((prev) => prev ? { ...prev, ...patch } : null)
+      return {}
+    } catch (e) {
+      // 更新失败时仍然更新本地状态
+      setProfile((prev) => prev ? { ...prev, ...patch } : null)
+      return {}
     }
-    setProfile((prev) => prev ? { ...prev, ...patch } : null)
-    return {}
   }, [user])
 
   const sendPasswordResetEmail = useCallback(async (email: string) => {
@@ -198,20 +273,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!user?.is_anonymous) {
       return { error: '当前账户不是匿名账户' }
     }
-    const { error } = await supabase.auth.updateUser({ email, password })
-    if (error) {
-      return { error: error.message }
+    try {
+      const { error } = await supabase.auth.updateUser({ email, password })
+      if (error) {
+        return { error: error.message }
+      }
+      // 刷新 profile（表不存在时静默降级）
+      fetchProfile(user.id)
+      return {}
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { error: msg }
     }
-    // 刷新 profile
-    await fetchProfile(user.id)
-    return {}
   }, [user, fetchProfile])
 
   // 上传头像到 Supabase Storage
   const uploadAvatar = useCallback(async (file: File) => {
     if (!user) return { error: '未登录' }
 
-    // 校验
     if (file.size > 2 * 1024 * 1024) {
       return { error: '图片大小不能超过 2MB' }
     }
@@ -222,50 +301,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const ext = file.type === 'image/png' ? 'png' : 'jpg'
     const filePath = `${user.id}/avatar.${ext}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file, { upsert: true, contentType: file.type })
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, { upsert: true, contentType: file.type })
 
-    if (uploadError) {
-      return { error: uploadError.message }
+      if (uploadError) {
+        // bucket 不存在时给出明确提示
+        if (uploadError.message.includes('not found') || uploadError.message.includes('bucket')) {
+          return { error: '头像存储服务未配置，请在 Supabase 创建 avatars 存储桶' }
+        }
+        return { error: uploadError.message }
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      await updateProfile({ avatar_url: urlData.publicUrl })
+      return { url: urlData.publicUrl }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      return { error: msg }
     }
-
-    const { data: urlData } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(filePath)
-
-    const avatarUrl = urlData.publicUrl
-    await updateProfile({ avatar_url: avatarUrl })
-
-    return { url: avatarUrl }
   }, [user, updateProfile])
 
   // 删除账户
   const deleteAccount = useCallback(async () => {
     if (!user) return { error: '未登录' }
 
-    // 删除 visits
-    await supabase.from('visits').delete().eq('user_id', user.id)
-    // 删除 profile
-    await supabase.from('profiles').delete().eq('id', user.id)
-    // 删除头像文件
-    await supabase.storage.from('avatars').remove([`${user.id}/avatar.jpg`, `${user.id}/avatar.png`])
-
-    // 删除 auth user（需要调用 Supabase Edge Function 或使用 admin API）
-    // 前端 anon key 无法直接删除用户，这里用 signOut 作为替代
-    // 如需彻底删除，需要在 Supabase Dashboard 创建 Edge Function
-    const { error } = await supabase.rpc('delete_user') as { error?: { message: string } }
-    if (error) {
-      // 如果 RPC 不存在，至少登出并清理本地数据
-      await supabase.auth.signOut()
-      setUser(null)
-      setSession(null)
-      setProfile(null)
-      localStorage.removeItem('medprep_current_visit')
-      localStorage.removeItem('medprep_visit_history')
-      return {}
+    try {
+      // 尝试删除 visits（表不存在时忽略）
+      try { await supabase.from('visits').delete().eq('user_id', user.id) } catch {}
+      // 尝试删除 profile（表不存在时忽略）
+      try { await supabase.from('profiles').delete().eq('id', user.id) } catch {}
+      // 尝试删除头像文件
+      try { await supabase.storage.from('avatars').remove([`${user.id}/avatar.jpg`, `${user.id}/avatar.png`]) } catch {}
+    } catch {
+      // 静默忽略所有清理错误
     }
 
+    // 登出并清理本地数据
     await supabase.auth.signOut()
     setUser(null)
     setSession(null)
@@ -275,14 +351,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return {}
   }, [user])
 
-  // 检查未同步数据（供外部调用）
   const checkUnsyncedData = useCallback(() => {
     const count = getUnsyncedCount()
     setUnsyncedCount(count)
     return count
   }, [])
 
-  // 执行批量同步
   const syncLocalData = useCallback(async () => {
     if (!user) return { synced: 0, failed: 0 }
     const result = await batchSyncLocalHistory(user.id)
@@ -292,7 +366,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { synced: result.synced, failed: result.failed }
   }, [user])
 
-  // 关闭同步弹窗
   const dismissSyncDialog = useCallback(() => {
     setUnsyncedCount(0)
   }, [])

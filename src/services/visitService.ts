@@ -2,6 +2,12 @@ import { supabase } from '@/lib/supabaseClient'
 import type { VisitData } from '@/utils/visitStore'
 import { getUnsyncedLocalHistory, markSynced, getLocalHistoryCache } from '@/utils/visitStore'
 
+/** 判断错误是否为"表不存在"（SQL 未执行），应静默降级 */
+function isTableNotFoundError(error: unknown): boolean {
+  const msg = error instanceof Error ? error.message : String(error)
+  return msg.includes('Could not find') || msg.includes('schema cache') || (msg.includes('relation') && msg.includes('does not exist'))
+}
+
 export interface VisitRecord {
   id: string
   user_id: string
@@ -74,37 +80,52 @@ export function validateVisitData(data: VisitData): { valid: boolean; reason?: s
 
 /** 获取用户的所有就诊记录列表 */
 export async function fetchVisits(userId: string): Promise<VisitListItem[]> {
-  const { data, error } = await supabase
-    .from('visits')
-    .select('id, title, visit_data, created_at')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false })
+  try {
+    const { data, error } = await supabase
+      .from('visits')
+      .select('id, title, visit_data, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
 
-  if (error) throw error
-
-  return (data || []).map((row: VisitRecord) => {
-    const summary = extractSummary(row.visit_data as VisitData)
-    return {
-      id: row.id,
-      title: row.title,
-      created_at: row.created_at,
-      department: summary.department,
-      symptomSummary: summary.symptomSummary,
+    if (error) {
+      if (isTableNotFoundError(error)) return []
+      throw error
     }
-  })
+
+    return (data || []).map((row: VisitRecord) => {
+      const summary = extractSummary(row.visit_data as VisitData)
+      return {
+        id: row.id,
+        title: row.title,
+        created_at: row.created_at,
+        department: summary.department,
+        symptomSummary: summary.symptomSummary,
+      }
+    })
+  } catch (e) {
+    if (isTableNotFoundError(e)) return []
+    throw e
+  }
 }
 
 /** 获取单条就诊记录详情 */
 export async function fetchVisitById(id: string, userId: string): Promise<VisitRecord | null> {
-  const { data, error } = await supabase
-    .from('visits')
-    .select('*')
-    .eq('id', id)
-    .eq('user_id', userId)
-    .single()
+  try {
+    const { data, error } = await supabase
+      .from('visits')
+      .select('*')
+      .eq('id', id)
+      .eq('user_id', userId)
+      .single()
 
-  if (error) return null
-  return data as VisitRecord
+    if (error) {
+      if (isTableNotFoundError(error)) return null
+      return null
+    }
+    return data as VisitRecord
+  } catch {
+    return null
+  }
 }
 
 /** 保存就诊记录到 Supabase */
@@ -113,40 +134,60 @@ export async function saveVisit(
   visitData: VisitData,
   title?: string,
 ): Promise<{ success: boolean; id?: string; error?: string }> {
-  const { data: sessionData } = await supabase.auth.getSession()
-  if (!sessionData.session) {
-    return { success: false, error: '未登录' }
+  try {
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      return { success: false, error: '未登录' }
+    }
+
+    const { data, error } = await supabase
+      .from('visits')
+      .insert({
+        user_id: userId,
+        title: title || generateVisitTitle(visitData),
+        visit_data: visitData,
+      })
+      .select('id')
+      .single()
+
+    if (error) {
+      if (isTableNotFoundError(error)) {
+        return { success: false, error: '数据库未配置，请执行 supabase_setup.sql' }
+      }
+      return { success: false, error: error.message }
+    }
+
+    return { success: true, id: data?.id }
+  } catch (e) {
+    if (isTableNotFoundError(e)) {
+      return { success: false, error: '数据库未配置，请执行 supabase_setup.sql' }
+    }
+    return { success: false, error: '保存失败，请稍后重试' }
   }
-
-  const { data, error } = await supabase
-    .from('visits')
-    .insert({
-      user_id: userId,
-      title: title || generateVisitTitle(visitData),
-      visit_data: visitData,
-    })
-    .select('id')
-    .single()
-
-  if (error) {
-    return { success: false, error: error.message }
-  }
-
-  return { success: true, id: data?.id }
 }
 
 /** 删除就诊记录 */
 export async function deleteVisit(id: string, userId: string): Promise<{ success: boolean; error?: string }> {
-  const { error } = await supabase
-    .from('visits')
-    .delete()
-    .eq('id', id)
-    .eq('user_id', userId)
+  try {
+    const { error } = await supabase
+      .from('visits')
+      .delete()
+      .eq('id', id)
+      .eq('user_id', userId)
 
-  if (error) {
-    return { success: false, error: error.message }
+    if (error) {
+      if (isTableNotFoundError(error)) {
+        return { success: false, error: '数据库未配置' }
+      }
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (e) {
+    if (isTableNotFoundError(e)) {
+      return { success: false, error: '数据库未配置' }
+    }
+    return { success: false, error: '删除失败' }
   }
-  return { success: true }
 }
 
 /* ================================================
@@ -184,18 +225,29 @@ export async function batchSyncLocalHistory(userId: string): Promise<{
       continue
     }
 
-    const { error } = await supabase.from('visits').insert({
-      user_id: userId,
-      title: generateVisitTitle(entry.data),
-      visit_data: entry.data,
-      created_at: new Date(entry.timestamp).toISOString(),
-    })
+    try {
+      const { error } = await supabase.from('visits').insert({
+        user_id: userId,
+        title: generateVisitTitle(entry.data),
+        visit_data: entry.data,
+        created_at: new Date(entry.timestamp).toISOString(),
+      })
 
-    if (error) {
+      if (error) {
+        if (isTableNotFoundError(error)) {
+          // 表不存在，全部失败，停止批量同步
+          return { success: false, synced, failed: unsynced.length - synced, error: '数据库未配置' }
+        }
+        failed++
+      } else {
+        synced++
+        syncedTimestamps.push(entry.timestamp)
+      }
+    } catch (e) {
+      if (isTableNotFoundError(e)) {
+        return { success: false, synced, failed: unsynced.length - synced, error: '数据库未配置' }
+      }
       failed++
-    } else {
-      synced++
-      syncedTimestamps.push(entry.timestamp)
     }
   }
 

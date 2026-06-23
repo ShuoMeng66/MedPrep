@@ -89,25 +89,30 @@ export function saveToHistory(): HistoryEntry {
  * 保存就诊记录到 Supabase（需登录）
  */
 export async function saveToSupabase(): Promise<{ success: boolean; error?: string }> {
-  const data = readVisitData()
-  const title = formatHistoryLabel()
+  try {
+    const data = readVisitData()
+    const title = formatHistoryLabel()
 
-  const { data: sessionData } = await supabase.auth.getSession()
-  if (!sessionData.session) {
-    return { success: false, error: '未登录' }
+    const { data: sessionData } = await supabase.auth.getSession()
+    if (!sessionData.session) {
+      return { success: false, error: '未登录' }
+    }
+
+    const { error } = await supabase.from('visits').insert({
+      user_id: sessionData.session.user.id,
+      title,
+      visit_data: data,
+    })
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    return { success: true }
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e)
+    return { success: false, error: msg }
   }
-
-  const { error } = await supabase.from('visits').insert({
-    user_id: sessionData.session.user.id,
-    title,
-    visit_data: data,
-  })
-
-  if (error) {
-    return { success: false, error: error.message }
-  }
-
-  return { success: true }
 }
 
 function formatHistoryLabel(): string {
