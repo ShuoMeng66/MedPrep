@@ -135,21 +135,22 @@ export default function SymptomTimeline() {
           <label className="block text-base font-semibold text-gray-700 mb-2">
             描述您的症状变化
           </label>
-          <div className="relative">
+          <button
+            onClick={() => { setText(EXAMPLE_SYMPTOMS); setError(null) }}
+            className="w-full px-3 py-1.5 text-sm text-orange-500 hover:text-orange-600 border border-orange-200 rounded-lg mb-2"
+          >
+            <Lightbulb className="w-3.5 h-3.5" />
+            使用示例
+          </button>
+          <div>
             <textarea
               value={text}
               onChange={(e) => { setText(e.target.value); setError(null) }}
               placeholder="例如：上周一开始头疼，周三加重，伴有恶心呕吐，今天有所缓解但仍头晕…"
               rows={5}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none transition-shadow"
+              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none transition-shadow min-h-[120px]"
+              onFocus={(e) => { setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
             />
-            <button
-              onClick={() => { setText(EXAMPLE_SYMPTOMS); setError(null) }}
-              className="absolute top-2 right-2 flex items-center gap-1.5 text-xs text-orange-500 bg-orange-50 hover:bg-orange-100 rounded-lg px-2.5 py-1.5 transition-colors"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              使用示例
-            </button>
           </div>
           <label className="block text-base font-semibold text-gray-700 mt-4 mb-2">
             就诊科室（选填）
@@ -157,7 +158,7 @@ export default function SymptomTimeline() {
           <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10"
           >
             <option value="">请选择科室</option>
             {DEPARTMENTS.map((d) => (
@@ -172,11 +173,11 @@ export default function SymptomTimeline() {
           )}
           <button
             onClick={handleGenerate}
-            disabled={!text.trim()}
+            disabled={loading || !text.trim()}
             className="mt-4 w-full flex items-center justify-center gap-2 bg-orange-500 text-white text-lg font-medium py-3.5 rounded-2xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
           >
             <Sparkles className="w-5 h-5" />
-            生成时间线
+            {loading ? '⏳ 正在生成…' : '生成时间线'}
           </button>
         </div>
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-8 text-center mt-4">
@@ -229,7 +230,7 @@ export default function SymptomTimeline() {
             {clinicalSummary && (
               <button
                 onClick={handleCopyClinical}
-                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors"
+                className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 transition-colors active:scale-95 transition-transform"
               >
                 {copiedClinical ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 {copiedClinical ? '已复制' : '复制给医生'}
@@ -269,7 +270,7 @@ export default function SymptomTimeline() {
             {thirtySecondVersion && (
               <button
                 onClick={handleCopyThirty}
-                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors"
+                className="flex items-center gap-1 text-xs text-green-600 hover:text-green-700 transition-colors active:scale-95 transition-transform"
               >
                 {copiedThirty ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                 {copiedThirty ? '已复制' : '复制朗读版'}
@@ -356,7 +357,7 @@ export default function SymptomTimeline() {
         <div className="mt-4 flex gap-2">
           <button
             onClick={handleCopyAll}
-            className="flex-1 flex items-center justify-center gap-2 bg-white border border-orange-200 text-orange-600 text-base font-medium py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px]"
+            className="flex-1 flex items-center justify-center gap-2 bg-white border border-orange-200 text-orange-600 text-base font-medium py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px] active:scale-95 transition-transform w-full sm:w-auto"
           >
             {copied ? <><Check className="w-5 h-5" />已复制</> : <><Copy className="w-5 h-5" />复制全部</>}
           </button>

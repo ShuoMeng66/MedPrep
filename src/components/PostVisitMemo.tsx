@@ -139,28 +139,27 @@ export default function PostVisitMemo() {
           <label className="block text-base font-semibold text-gray-700 mb-2">
             记录诊后信息
           </label>
-          <div className="relative">
-            <textarea
-              value={text}
-              onChange={(e) => {
-                setText(e.target.value)
-                setError(null)
-              }}
-              placeholder="请记录医生的诊断结论、用药指导、复查安排和注意事项…"
-              rows={6}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none transition-shadow"
-            />
-            <button
-              onClick={() => {
-                setText(EXAMPLE_TEXT)
-                setError(null)
-              }}
-              className="absolute top-2 right-2 flex items-center gap-1.5 text-xs text-orange-500 bg-orange-50 hover:bg-orange-100 rounded-lg px-2.5 py-1.5 transition-colors"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              使用示例
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setText(EXAMPLE_TEXT)
+              setError(null)
+            }}
+            className="w-full px-3 py-1.5 text-sm text-orange-500 hover:text-orange-600 border border-orange-200 rounded-lg mb-2"
+          >
+            <Lightbulb className="w-3.5 h-3.5 inline mr-1.5" />
+            使用示例
+          </button>
+          <textarea
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value)
+              setError(null)
+            }}
+            onFocus={(e) => { setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
+            placeholder="请记录医生的诊断结论、用药指导、复查安排和注意事项…"
+            rows={6}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orange-300 focus:border-orange-300 resize-none transition-shadow min-h-[120px]"
+          />
 
           {/* 错误提示 */}
           {error && (
@@ -173,11 +172,11 @@ export default function PostVisitMemo() {
           {/* 生成按钮 */}
           <button
             onClick={handleGenerate}
-            disabled={!text.trim()}
+            disabled={!text.trim() || loading}
             className="mt-4 w-full flex items-center justify-center gap-2 bg-orange-500 text-white text-lg font-medium py-3.5 rounded-2xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
           >
             <Sparkles className="w-5 h-5" />
-            生成就诊纪要
+            {loading ? '⏳ 正在生成…' : '生成就诊纪要'}
           </button>
         </div>
 
@@ -257,7 +256,7 @@ export default function PostVisitMemo() {
       <div className="flex gap-2 mb-4">
         <button
           onClick={handleCopyAll}
-          className="flex-1 flex items-center justify-center gap-2 bg-white border border-orange-200 text-orange-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px]"
+          className="flex-1 flex items-center justify-center gap-2 bg-white border border-orange-200 text-orange-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all active:scale-95 transition-transform w-full sm:w-auto min-h-[48px]"
         >
           {copiedAll ? (
             <>
@@ -273,7 +272,7 @@ export default function PostVisitMemo() {
         </button>
         <button
           onClick={handleCopyPlain}
-          className="flex-1 flex items-center justify-center gap-2 bg-white border border-green-200 text-green-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-green-50 active:scale-[0.98] transition-all min-h-[48px]"
+          className="flex-1 flex items-center justify-center gap-2 bg-white border border-green-200 text-green-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-green-50 active:scale-[0.98] transition-all active:scale-95 transition-transform w-full sm:w-auto min-h-[48px]"
         >
           {copiedPlain ? (
             <>
@@ -446,7 +445,7 @@ function CardWrapper({
   const c = colorMap[color]
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden mb-4">
+    <div className="bg-white rounded-2xl shadow-sm border border-orange-100 overflow-hidden mb-3">
       {/* 标题栏 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
         <div className="flex items-center gap-2.5">
@@ -457,7 +456,7 @@ function CardWrapper({
         </div>
         <button
           onClick={onCopy}
-          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${c.border} ${c.text} ${c.hover} transition-colors`}
+          className={`flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg border ${c.border} ${c.text} ${c.hover} transition-colors min-h-[44px]`}
         >
           {copied ? (
             <>

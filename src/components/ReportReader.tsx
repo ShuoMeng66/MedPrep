@@ -198,12 +198,12 @@ export default function ReportReader() {
           </label>
 
           {/* 拖拽上传区 */}
-          <div
+          <label
+            htmlFor="report-upload"
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all ${
+            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all min-h-[120px] ${
               dragOver
                 ? 'border-blue-400 bg-blue-50'
                 : imagePreview
@@ -213,8 +213,10 @@ export default function ReportReader() {
           >
             <input
               ref={fileInputRef}
+              id="report-upload"
               type="file"
-              accept="image/jpeg,image/png"
+              accept="image/*"
+              capture
               onChange={handleFileChange}
               className="hidden"
             />
@@ -226,14 +228,14 @@ export default function ReportReader() {
                     e.stopPropagation()
                     handleRemoveImage()
                   }}
-                  className="absolute -top-2 -right-2 w-7 h-7 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-md z-10"
+                  className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600 transition-colors shadow-md z-10"
                 >
                   <X className="w-4 h-4" />
                 </button>
                 <img
                   src={imagePreview}
                   alt="报告预览"
-                  className="max-h-48 mx-auto rounded-xl shadow-sm"
+                  className="max-w-full max-h-64 object-contain rounded-lg mx-auto rounded-xl shadow-sm"
                 />
                 <p className="text-sm text-blue-600 mt-2">点击更换图片</p>
               </div>
@@ -246,31 +248,30 @@ export default function ReportReader() {
                 <p className="text-sm text-gray-400">支持 JPG、PNG 格式，最大 5MB</p>
               </div>
             )}
-          </div>
+          </label>
 
           {/* 报告内容描述 */}
           <label className="block text-base font-semibold text-gray-700 mt-4 mb-2">
             报告内容描述
           </label>
-          <div className="relative">
-            <textarea
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value)
-                setError(null)
-              }}
-              placeholder="请描述报告中的指标名称和数值，例如：&#10;白细胞计数 11.2，偏高；血红蛋白 128，正常…"
-              rows={4}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 resize-none transition-shadow"
-            />
-            <button
-              onClick={handleFillExample}
-              className="absolute top-2 right-2 flex items-center gap-1.5 text-xs text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg px-2.5 py-1.5 transition-colors"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              使用示例
-            </button>
-          </div>
+          <button
+            onClick={handleFillExample}
+            className="w-full px-3 py-1.5 text-sm text-orange-500 hover:text-orange-600 border border-orange-200 rounded-lg mb-2"
+          >
+            <Lightbulb className="w-3.5 h-3.5 inline mr-1" />
+            使用示例
+          </button>
+          <textarea
+            value={description}
+            onChange={(e) => {
+              setDescription(e.target.value)
+              setError(null)
+            }}
+            onFocus={(e) => { setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
+            placeholder="请描述报告中的指标名称和数值，例如：&#10;白细胞计数 11.2，偏高；血红蛋白 128，正常…"
+            rows={4}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-300 resize-none transition-shadow min-h-[120px]"
+          />
 
           {/* 错误提示 */}
           {error && (
@@ -283,11 +284,11 @@ export default function ReportReader() {
           {/* 生成按钮 */}
           <button
             onClick={handleGenerate}
-            disabled={!description.trim()}
+            disabled={!description.trim() || loading}
             className="mt-4 w-full flex items-center justify-center gap-2 bg-blue-500 text-white text-lg font-medium py-3.5 rounded-2xl shadow-md shadow-blue-200 hover:bg-blue-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
           >
             <Sparkles className="w-5 h-5" />
-            生成解读
+            {loading ? '⏳ 正在生成…' : '生成解读'}
           </button>
         </div>
 
@@ -457,7 +458,7 @@ export default function ReportReader() {
       {/* 复制按钮 */}
       <button
         onClick={handleCopy}
-        className="w-full flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-600 text-base font-medium py-3 rounded-2xl hover:bg-blue-50 active:scale-[0.98] transition-all min-h-[48px] mb-4"
+        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white border border-blue-200 text-blue-600 text-base font-medium py-3 rounded-2xl hover:bg-blue-50 active:scale-95 transition-transform min-h-[48px] mb-4"
       >
         {copied ? (
           <>

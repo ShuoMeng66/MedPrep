@@ -171,28 +171,27 @@ export default function ConsultChecklist() {
           <label className="block text-base font-semibold text-gray-700 mb-2">
             描述您的症状
           </label>
-          <div className="relative">
-            <textarea
-              value={symptoms}
-              onChange={(e) => {
-                setSymptoms(e.target.value)
-                setError(null)
-              }}
-              placeholder="例如：头疼三天，伴有恶心，睡眠不好…"
-              rows={4}
-              className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-300 resize-none transition-shadow"
-            />
-            <button
-              onClick={() => {
-                setSymptoms(EXAMPLE_SYMPTOMS)
-                setError(null)
-              }}
-              className="absolute top-2 right-2 flex items-center gap-1.5 text-xs text-green-500 bg-green-50 hover:bg-green-100 rounded-lg px-2.5 py-1.5 transition-colors"
-            >
-              <Lightbulb className="w-3.5 h-3.5" />
-              使用示例
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setSymptoms(EXAMPLE_SYMPTOMS)
+              setError(null)
+            }}
+            className="w-full px-3 py-1.5 text-sm text-orange-500 hover:text-orange-600 border border-orange-200 rounded-lg mb-2"
+          >
+            <Lightbulb className="w-3.5 h-3.5 inline mr-1.5" />
+            使用示例
+          </button>
+          <textarea
+            value={symptoms}
+            onChange={(e) => {
+              setSymptoms(e.target.value)
+              setError(null)
+            }}
+            onFocus={(e) => { setTimeout(() => e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300) }}
+            placeholder="例如：头疼三天，伴有恶心，睡眠不好…"
+            rows={4}
+            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-300 resize-none transition-shadow min-h-[120px]"
+          />
 
           <label className="block text-base font-semibold text-gray-700 mt-4 mb-2">
             就诊科室（选填）
@@ -200,7 +199,7 @@ export default function ConsultChecklist() {
           <select
             value={department}
             onChange={(e) => setDepartment(e.target.value)}
-            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-300 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10"
+            className="w-full border border-gray-200 rounded-xl px-4 py-3.5 text-base text-gray-800 bg-white focus:outline-none focus:ring-2 focus:ring-green-300 focus:border-green-300 appearance-none bg-[url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2220%22%20height%3D%2220%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239CA3AF%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[length:20px] bg-[right_12px_center] bg-no-repeat pr-10"
           >
             <option value="">请选择科室</option>
             {DEPARTMENTS.map((d) => (
@@ -219,11 +218,11 @@ export default function ConsultChecklist() {
 
           <button
             onClick={handleGenerate}
-            disabled={!symptoms.trim()}
+            disabled={!symptoms.trim() || loading}
             className="mt-4 w-full flex items-center justify-center gap-2 bg-green-500 text-white text-lg font-medium py-3.5 rounded-2xl shadow-md shadow-green-200 hover:bg-green-600 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px]"
           >
             <Sparkles className="w-5 h-5" />
-            生成问诊清单
+            {loading ? '⏳ 正在生成…' : '生成问诊清单'}
           </button>
         </div>
 
@@ -317,30 +316,26 @@ export default function ConsultChecklist() {
                   {items.map((item) => {
                     const isChecked = checkedIds.has(item.id)
                     return (
-                      <button
+                      <label
                         key={item.id}
-                        onClick={() => toggleChecked(item.id)}
-                        className="w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors"
+                        className="w-full flex items-start gap-3 px-4 py-3.5 text-left hover:bg-gray-50 transition-colors cursor-pointer min-h-[48px]"
                       >
                         {/* 勾选框 */}
-                        <div
-                          className={`flex-shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center mt-0.5 transition-all ${
-                            isChecked
-                              ? 'bg-green-500 border-green-500'
-                              : 'border-gray-300'
-                          }`}
-                        >
-                          {isChecked && <Check className="w-4 h-4 text-white" />}
-                        </div>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleChecked(item.id)}
+                          className="w-5 h-5 text-orange-500 rounded border-gray-300 flex-shrink-0 mt-0.5"
+                        />
                         {/* 问题文字 */}
                         <span
-                          className={`text-base leading-relaxed flex-1 ${
+                          className={`text-base leading-relaxed flex-1 whitespace-normal break-words ${
                             isChecked ? 'text-gray-400 line-through' : 'text-gray-800'
                           }`}
                         >
                           {item.question}
                         </span>
-                      </button>
+                      </label>
                     )
                   })}
                 </div>
@@ -354,7 +349,7 @@ export default function ConsultChecklist() {
       <div className="mt-4 flex gap-2">
         <button
           onClick={handleExport}
-          className="flex-1 flex items-center justify-center gap-2 bg-white border border-green-200 text-green-600 text-base font-medium py-3 rounded-2xl hover:bg-green-50 active:scale-[0.98] transition-all min-h-[48px]"
+          className="w-full sm:w-auto flex-1 flex items-center justify-center gap-2 bg-white border border-green-200 text-green-600 text-base font-medium py-3 rounded-2xl hover:bg-green-50 active:scale-95 transition-transform min-h-[48px]"
         >
           {exported ? (
             <>
