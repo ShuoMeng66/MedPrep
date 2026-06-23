@@ -1,18 +1,55 @@
-import { Stethoscope, AlertCircle } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Stethoscope, AlertCircle, User, Clock, Settings } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
 
 export default function Header() {
+  const { profile, user } = useAuth()
+  const navigate = useNavigate()
+
+  const avatarUrl = profile?.avatar_url
+    ? profile.avatar_url
+    : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(profile?.nickname || '用户')}&backgroundColor=f97316&textColor=ffffff`
+
   return (
     <header className="mb-4">
       {/* 品牌区域 */}
       <div className="bg-gradient-to-br from-orange-400 to-orange-500 text-white">
         <div className="max-w-6xl mx-auto px-4 py-10 sm:py-14">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="bg-white/20 rounded-2xl p-2.5">
-              <Stethoscope className="w-8 h-8" />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-white/20 rounded-2xl p-2.5">
+                <Stethoscope className="w-8 h-8" />
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">陪诊锦囊</h1>
+                <p className="text-orange-100 text-sm mt-0.5">MedPrep</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-wide">陪诊锦囊</h1>
-              <p className="text-orange-100 text-sm mt-0.5">MedPrep</p>
+            {/* 用户导航按钮 */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => navigate('/history')}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <Clock className="w-4 h-4" />
+                <span className="hidden sm:inline">历史记录</span>
+              </button>
+              <button
+                onClick={() => navigate('/settings')}
+                className="flex items-center gap-1.5 bg-white/20 hover:bg-white/30 rounded-xl px-3 py-2 text-sm font-medium transition-colors"
+              >
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  className="w-6 h-6 rounded-full object-cover border border-white/30"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none'
+                  }}
+                />
+                <span className="hidden sm:inline max-w-[80px] truncate">
+                  {profile?.nickname || '账户'}
+                </span>
+              </button>
             </div>
           </div>
           <p className="text-orange-50 text-base sm:text-lg leading-relaxed mt-4 max-w-xl">

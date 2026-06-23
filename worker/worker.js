@@ -63,7 +63,7 @@ export default {
       return jsonResponse({ error: '仅支持 POST 请求' }, 405)
     }
 
-    const apiKey = env.BAILIAN_API_KEY
+    const apiKey = env.BAILIAN_API_KEY || 'sk-ws-H.RPYHHPL.Ul1h.MEYCIQCt5lN0p6Acwq38QzlFdcUeEAnigF-3jk39x9botoe8PwIhALMcqB_AxQMLmfUa5wCe0dnPMP4tdaXN9_DeVyhX4FIO'
     if (!apiKey) {
       return jsonResponse({ error: '服务未配置 API Key' }, 500)
     }
@@ -98,7 +98,7 @@ export default {
           'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'qwen-plus',
+          model: 'qwen3.7-plus',
           messages: [
             { role: 'system', content: SYSTEM_PROMPT },
             { role: 'user', content: userMessage },
@@ -114,10 +114,21 @@ export default {
         const errText = await response.text()
         console.error('Bailian API error:', response.status, errText)
 
+        let errMsg = 'AI 服务暂时不可用，请稍后重试'
+        try {
+          const errJson = JSON.parse(errText)
+          if (errJson.error?.message) {
+            errMsg = errJson.error.message
+          }
+          if (errJson.error?.code === 'AllocationQuota.FreeTierOnly') {
+            errMsg = '百炼免费额度已用完，请在百炼控制台关闭「仅使用免费额度」或充值'
+          }
+        } catch {}
+
         if (response.status === 429) {
           return jsonResponse({ error: '请求过于频繁，请稍后重试', retryable: true }, 429)
         }
-        return jsonResponse({ error: 'AI 服务暂时不可用，请稍后重试', retryable: true }, 502)
+        return jsonResponse({ error: errMsg, retryable: true }, 502)
       }
 
       const result = await response.json()

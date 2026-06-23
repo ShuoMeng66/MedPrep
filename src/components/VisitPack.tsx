@@ -28,6 +28,8 @@ import {
   X,
 } from 'lucide-react'
 import { readVisitData, saveToHistory, type VisitData } from '@/utils/visitStore'
+import { saveVisit, validateVisitData } from '@/services/visitService'
+import { useAuth } from '@/contexts/AuthContext'
 import { useTabStore } from '@/store/useTabStore'
 import type { TimelineEntry } from '@/utils/timelineParser'
 import type { QuestionItem, QuestionCategory } from '@/utils/questionGenerator'
@@ -54,6 +56,7 @@ const CATEGORY_LABELS: Record<QuestionCategory, string> = {
 }
 
 export default function VisitPack() {
+  const { user } = useAuth()
   const setActiveTab = useTabStore((s) => s.setActiveTab)
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -246,16 +249,34 @@ export default function VisitPack() {
   }, [data, formatFullText, generateTime, showToast, comparison])
 
   // 保存本次就诊
-  const handleSave = useCallback(() => {
-    if (!hasAnyData) {
-      showToast('暂无数据可保存')
+  const handleSave = useCallback(async () => {
+    const validation = validateVisitData(data)
+    if (!validation.valid) {
+      showToast(validation.reason || '请先填写就诊信息')
+      setActiveTab('timeline')
       return
     }
+
+    // 保存到本地历史
     saveToHistory()
+
+    // 保存到 Supabase 云端
+    if (user) {
+      const result = await saveVisit(user.id, data)
+      if (result.success) {
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2000)
+        showToast('已保存到云端')
+        return
+      } else {
+        showToast('已保存到本地（云端同步失败：' + (result.error || '') + '）')
+      }
+    } else {
+      showToast('已保存到本地')
+    }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    showToast('已保存到就诊历史')
-  }, [hasAnyData, showToast])
+  }, [data, showToast, setActiveTab, user])
 
   // 生成分享链接
   const handleGenerateShare = useCallback(() => {
