@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   /**
    * 从 Supabase 获取 profile
+   * 如果行不存在（老用户注册时触发器未触发），自动创建
    * 如果表不存在，静默降级为本地 profile（不影响登录）
    */
   const fetchProfile = useCallback(async (userId: string) => {
@@ -82,15 +83,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .from('profiles')
         .select('*')
         .eq('id', userId)
-        .single()
+        .maybeSingle()
 
       if (error) {
         if (isTableNotFoundError(error)) {
-          // 表不存在，用本地 profile
           setProfile((prev) => prev || buildLocalProfile(user!))
           return
         }
-        // 其他错误也是静默降级
         console.warn('[MedPrep] 读取 profile 失败:', error.message)
         setProfile((prev) => prev || buildLocalProfile(user!))
         return
@@ -98,9 +97,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (data) {
         setProfile(data as Profile)
+      } else {
+        // 行不存在（老用户），尝试自动创建
+        const localProfile = buildLocalProfile(user!)
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({ id: userId, nickname: localProfile.nickname })
+        if (insertError && !isTableNotFoundError(insertError)) {
+          console.warn('[MedPrep] 自动创建 profile 失败:', insertError.message)
+        }
+        setProfile(localProfile)
       }
     } catch (e) {
-      // 网络错误等，静默降级
       console.warn('[MedPrep] 读取 profile 异常:', e)
       setProfile((prev) => prev || buildLocalProfile(user!))
     }
@@ -203,10 +211,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // 匿名登录成功后，尝试插入 profile（表不存在时静默降级）
       if (data.user) {
         try {
-          await supabase.from('profiles').insert({
+          await supabase.from('profiles').upsert({
             id: data.user.id,
             nickname: generateRandomNickname(),
-          })
+          }, { onConflict: 'id' })
         } catch {
           // profiles 表不存在，静默降级，使用本地 profile
         }
@@ -226,11 +234,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update(patch)
-        .eq('id', user.id)
+        .upsert({ id: user.id, ...patch }, { onConflict: 'id' })
       if (error) {
-        // 表不存在时静默更新本地 profile
         if (isTableNotFoundError(error)) {
+          // 表不存在，静默更新本地 profile
           setProfile((prev) => prev ? { ...prev, ...patch } : null)
           return {}
         }
@@ -239,9 +246,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile((prev) => prev ? { ...prev, ...patch } : null)
       return {}
     } catch (e) {
-      // 更新失败时仍然更新本地状态
+      const msg = e instanceof Error ? e.message : String(e)
+      // 网络错误时仍然更新本地状态，但告知用户
       setProfile((prev) => prev ? { ...prev, ...patch } : null)
-      return {}
+      return { error: msg.includes('Failed to fetch') ? '网络连接失败，请检查网络后重试' : msg }
     }
   }, [user])
 
