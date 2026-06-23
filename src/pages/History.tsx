@@ -58,7 +58,7 @@ export default function History() {
   }
 
   return (
-    <div className="min-h-screen bg-orange-50/50">
+    <div className="min-h-screen bg-orange-50/50 pb-safe">
       <div className="max-w-2xl mx-auto px-4 py-8">
         {/* 顶部导航 */}
         <button

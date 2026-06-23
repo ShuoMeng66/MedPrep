@@ -25,3 +25,31 @@ button, a {
 html {
   font-size: 16px;
 }
+
+/* Mobile touch & scroll optimizations */
+body {
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent iOS input zoom on focus */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* Minimum touch target size (iOS HIG 44x44px) */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Hide scrollbar for TabBar horizontal scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

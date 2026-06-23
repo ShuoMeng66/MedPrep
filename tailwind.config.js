@@ -7,7 +7,12 @@ export default {
     container: {
       center: true,
     },
-    extend: {},
+    extend: {
+      padding: {
+        'safe-b': 'env(safe-area-inset-bottom)',
+        'safe-t': 'env(safe-area-inset-top)',
+      },
+    },
   },
   plugins: [],
 };

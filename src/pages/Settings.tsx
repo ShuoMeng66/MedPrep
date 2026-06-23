@@ -144,7 +144,7 @@ export default function Settings() {
     : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(profile?.nickname || '用户')}&backgroundColor=f97316&textColor=ffffff`
 
   return (
-    <div className="min-h-screen bg-orange-50/50">
+    <div className="min-h-screen bg-orange-50/50 pb-safe">
       <div className="max-w-lg mx-auto px-4 py-8">
         {/* 顶部导航 */}
         <button

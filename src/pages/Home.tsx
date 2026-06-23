@@ -23,7 +23,7 @@ export default function Home() {
 
       {/* 匿名用户提示条 */}
       {isAnonymous && (
-        <div className="max-w-6xl mx-auto px-4 mb-4">
+        <div className="max-w-lg mx-auto px-4 mb-4">
           <button
             onClick={() => navigate('/settings')}
             className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-amber-100 transition-colors group"
@@ -41,7 +41,7 @@ export default function Home() {
           </button>
         </div>
       )}
-      <div className="max-w-6xl mx-auto px-4 pb-12">
+      <div className="max-w-lg mx-auto px-4 pb-12 pb-safe">
         <TabBar />
         {activeTab === 'timeline' && <SymptomTimeline />}
         {activeTab === 'checklist' && <ConsultChecklist />}

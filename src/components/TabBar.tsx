@@ -14,8 +14,8 @@ export default function TabBar() {
   const setActiveTab = useTabStore((s) => s.setActiveTab)
 
   return (
-    <nav className="mb-6">
-      <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-1.5 flex gap-1 overflow-x-auto">
+    <nav className="mb-6 relative">
+      <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-1.5 flex gap-1 overflow-x-auto scrollbar-hide">
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key
           const Icon = tab.icon
@@ -23,7 +23,7 @@ export default function TabBar() {
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2.5 py-3 px-2.5 sm:px-3.5 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 min-h-[48px] ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 sm:gap-2.5 py-3 px-2.5 sm:px-3.5 rounded-xl text-sm sm:text-base font-medium transition-all duration-200 min-h-[44px] ${
                 isActive
                   ? 'bg-orange-500 text-white shadow-md shadow-orange-200'
                   : 'text-gray-500 hover:text-gray-700 hover:bg-orange-50'
@@ -40,6 +40,8 @@ export default function TabBar() {
           )
         })}
       </div>
+      {/* Right fade indicator */}
+      <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-white to-transparent sm:hidden" />
     </nav>
   )
 }
