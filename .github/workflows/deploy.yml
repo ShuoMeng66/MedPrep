@@ -28,11 +28,8 @@ jobs:
       - name: Type check
         run: npm run check
 
+      # 使用仓库内 .env 中的 VITE_* 变量；勿在此处用未配置的 secrets 覆盖（空字符串会导致白屏）
       - name: Build
-        env:
-          VITE_AI_PROXY_URL: ${{ secrets.VITE_AI_PROXY_URL }}
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: Deploy to GitHub Pages
