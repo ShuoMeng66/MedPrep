@@ -63,6 +63,7 @@ export default {
       return jsonResponse({ error: '仅支持 POST 请求' }, 405)
     }
 
+    // 优先使用 Wrangler Secret；本地/Cloudflare 部署可直接写回退 Key（此文件不在 GitHub 公开仓库中）
     const apiKey = env.BAILIAN_API_KEY || 'sk-ws-H.RPYHHPL.Ul1h.MEYCIQCt5lN0p6Acwq38QzlFdcUeEAnigF-3jk39x9botoe8PwIhALMcqB_AxQMLmfUa5wCe0dnPMP4tdaXN9_DeVyhX4FIO'
     if (!apiKey) {
       return jsonResponse({ error: '服务未配置 API Key' }, 500)

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   FolderOpen,
   Copy,
@@ -17,7 +18,6 @@ import {
   Eye,
   GitCompare,
   ChevronDown,
-  ChevronUp,
   TrendingUp,
   TrendingDown,
   Minus,
@@ -26,6 +26,8 @@ import {
   QrCode,
   ShieldAlert,
   X,
+  MoreHorizontal,
+  Loader2,
 } from 'lucide-react'
 import { readVisitData, saveToHistory, type VisitData } from '@/utils/visitStore'
 import { saveVisit, validateVisitData } from '@/services/visitService'
@@ -43,8 +45,8 @@ import {
   type VisitComparison,
   type SymptomTrend,
 } from '@/utils/compareVisits'
-import { encodeShareData, copyToClipboard } from '@/utils/shareUtils'
-import { QRCodeSVG } from 'qrcode.react'
+import { encodeShareData, encodeShareDataShort, copyToClipboard } from '@/utils/shareUtils'
+import QRCodeImage from '@/components/QRCodeImage'
 
 const SEVERITY_LABELS: Record<string, string> = { '轻': '轻度', '中': '中度', '重': '重度' }
 
@@ -58,6 +60,7 @@ const CATEGORY_LABELS: Record<QuestionCategory, string> = {
 export default function VisitPack() {
   const { user } = useAuth()
   const setActiveTab = useTabStore((s) => s.setActiveTab)
+  const navigate = useNavigate()
   const [copied, setCopied] = useState(false)
   const [saved, setSaved] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
@@ -65,10 +68,37 @@ export default function VisitPack() {
   const [shareUrl, setShareUrl] = useState('')
   const [linkCopied, setLinkCopied] = useState(false)
   const [showQr, setShowQr] = useState(false)
+  const [showMoreMenu, setShowMoreMenu] = useState(false)
+  const [shareLoading, setShareLoading] = useState(false)
 
+  // Accordion: 默认展开第一个有数据的 section
   const data = useMemo(() => readVisitData(), [])
-
   const hasAnyData = data.timeline || data.checklist || data.report || data.postVisit
+
+  // 确定哪些 section 有数据，用于默认展开第一个
+  const sectionKeys = useMemo(() => {
+    const keys: string[] = []
+    if (data.timeline) keys.push('timeline')
+    if (data.checklist) keys.push('checklist')
+    if (data.report) keys.push('report')
+    if (data.postVisit) keys.push('postVisit')
+    return keys
+  }, [data])
+
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(() => {
+    // 默认展开第一个有数据的 section
+    if (sectionKeys.length > 0) return new Set([sectionKeys[0]])
+    return new Set()
+  })
+
+  const toggleSection = (key: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
   // 复诊对比
   const [comparisonExpanded, setComparisonExpanded] = useState(false)
@@ -197,56 +227,10 @@ export default function VisitPack() {
     showToast('已复制全文，可粘贴到微信发送给家人')
   }, [data, formatFullText, showToast])
 
-  // 打印友好视图
+  // 打印视图 - 跳转到独立路由
   const handlePrintView = useCallback(() => {
-    const text = formatFullText(data)
-    const w = window.open('', '_blank', 'width=800,height=600')
-    if (!w) {
-      showToast('请允许弹出窗口以查看打印视图')
-      return
-    }
-    w.document.write(`<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <title>陪诊锦囊 · 就诊资料</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-      font-size: 16px;
-      line-height: 1.8;
-      color: #1a1a1a;
-      max-width: 720px;
-      margin: 0 auto;
-      padding: 40px 24px;
-      background: #fff;
-    }
-    h1 { font-size: 22px; text-align: center; margin-bottom: 4px; color: #333; }
-    .time { text-align: center; color: #999; font-size: 14px; margin-bottom: 24px; }
-    .section { margin-bottom: 24px; }
-    .section-title { font-size: 17px; font-weight: 700; color: #F97316; border-bottom: 2px solid #FED7AA; padding-bottom: 4px; margin-bottom: 10px; }
-    .item { margin-bottom: 6px; padding-left: 12px; }
-    .tag { display: inline-block; font-size: 12px; padding: 1px 6px; border-radius: 4px; margin-right: 4px; }
-    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; text-align: center; color: #999; font-size: 13px; }
-    @media print {
-      body { padding: 20px; }
-      .no-print { display: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="no-print" style="text-align:right;margin-bottom:16px;">
-    <button onclick="window.print()" style="padding:8px 20px;background:#F97316;color:#fff;border:none;border-radius:8px;font-size:15px;cursor:pointer;">打印</button>
-  </div>
-  <h1>陪诊锦囊 · 本次就诊资料</h1>
-  <p class="time">生成时间：${generateTime}</p>
-  ${buildPrintHtml(data, comparison)}
-  <p class="footer">本资料由「陪诊锦囊 MedPrep」生成，仅供参考</p>
-</body>
-</html>`)
-    w.document.close()
-  }, [data, formatFullText, generateTime, showToast, comparison])
+    navigate('/print')
+  }, [navigate])
 
   // 保存本次就诊
   const handleSave = useCallback(async () => {
@@ -257,10 +241,8 @@ export default function VisitPack() {
       return
     }
 
-    // 保存到本地历史
     saveToHistory()
 
-    // 保存到 Supabase 云端
     if (user) {
       const result = await saveVisit(user.id, data)
       if (result.success) {
@@ -278,15 +260,20 @@ export default function VisitPack() {
     setTimeout(() => setSaved(false), 2000)
   }, [data, showToast, setActiveTab, user])
 
-  // 生成分享链接
-  const handleGenerateShare = useCallback(() => {
+  // 生成分享链接（优先短链接）
+  const handleGenerateShare = useCallback(async () => {
     if (!hasAnyData) {
       showToast('暂无数据可分享')
       return
     }
-    const url = encodeShareData(data)
-    setShareUrl(url)
+    setShareLoading(true)
+    const result = await encodeShareDataShort(data)
+    setShareLoading(false)
+    setShareUrl(result.url)
     setShowShareDialog(true)
+    if (!result.isShort) {
+      showToast('云端存储不可用，已生成长链接')
+    }
   }, [hasAnyData, data, showToast])
 
   // 复制分享链接
@@ -300,7 +287,7 @@ export default function VisitPack() {
   }, [shareUrl, showToast])
 
   return (
-    <div className="relative">
+    <div className="relative pb-40">
       {/* Toast */}
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-gray-900 text-white text-sm px-5 py-3 rounded-2xl shadow-lg animate-[fadeIn_0.2s_ease-out]">
@@ -313,54 +300,6 @@ export default function VisitPack() {
         <h1 className="text-xl sm:text-2xl font-bold text-gray-800">陪诊锦囊 · 本次就诊资料</h1>
         <p className="text-sm text-gray-400 mt-1">生成时间：{generateTime}</p>
       </div>
-
-      {/* 操作按钮 */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={handleCopyAll}
-          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-orange-200 text-orange-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px]"
-        >
-          {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-          {copied ? '已复制' : '复制全文'}
-        </button>
-        <button
-          onClick={handlePrintView}
-          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-blue-200 text-blue-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-blue-50 active:scale-[0.98] transition-all min-h-[48px]"
-        >
-          <Printer className="w-4 h-4" />
-          打印视图
-        </button>
-        <button
-          onClick={handleSave}
-          className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-orange-500 text-white text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-[0.98] transition-all min-h-[48px]"
-        >
-          {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? '已保存' : '保存本次就诊'}
-        </button>
-      </div>
-
-      {/* 分享按钮行 */}
-      {hasAnyData && (
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={handleGenerateShare}
-            className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-green-200 text-green-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-green-50 active:scale-[0.98] transition-all min-h-[48px]"
-          >
-            <Share2 className="w-4 h-4" />
-            生成分享链接
-          </button>
-          <button
-            onClick={() => {
-              handleGenerateShare()
-              setShowQr(true)
-            }}
-            className="flex-1 flex items-center justify-center gap-1.5 sm:gap-2 bg-white border border-purple-200 text-purple-600 text-sm sm:text-base font-medium py-2.5 sm:py-3 rounded-2xl hover:bg-purple-50 active:scale-[0.98] transition-all min-h-[48px]"
-          >
-            <QrCode className="w-4 h-4" />
-            生成二维码
-          </button>
-        </div>
-      )}
 
       {/* 无数据提示 */}
       {!hasAnyData && (
@@ -390,16 +329,17 @@ export default function VisitPack() {
       )}
 
       {/* 症状时间线 */}
-      <SectionCard
+      <AccordionSection
         icon={<Clock className="w-5 h-5 text-orange-500" />}
         title="症状时间线"
         color="orange"
         hasData={!!data.timeline}
+        isExpanded={expandedSections.has('timeline')}
+        onToggle={() => toggleSection('timeline')}
         onJump={() => setActiveTab('timeline')}
       >
         {data.timeline && (
           <>
-            {/* AI 整理后表述 */}
             {data.timeline.clinicalSummary && data.timeline.clinicalSummary.length > 0 && (
               <div className="mb-4 bg-blue-50 rounded-xl px-4 py-3">
                 <p className="text-xs font-medium text-blue-600 mb-2">整理后表述</p>
@@ -413,7 +353,6 @@ export default function VisitPack() {
                 </ul>
               </div>
             )}
-            {/* AI 30秒版 */}
             {data.timeline.thirtySecondVersion && (
               <div className="mb-4 bg-green-50 rounded-xl px-4 py-3">
                 <p className="text-xs font-medium text-green-600 mb-1">给医生听的 30 秒版</p>
@@ -421,42 +360,44 @@ export default function VisitPack() {
               </div>
             )}
             <div className="relative">
-            <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-orange-200 rounded-full" />
-            {data.timeline.entries.map((entry, i) => (
-              <div key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
-                <div className="relative z-10 flex-shrink-0 mt-1">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
-                    i === 0 ? 'bg-orange-500 text-white' : 'bg-white border-2 border-orange-300 text-orange-600'
-                  }`}>
-                    {i + 1}
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-semibold text-gray-800">{entry.dateLabel}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      entry.severity === '轻' ? 'bg-green-100 text-green-700' :
-                      entry.severity === '中' ? 'bg-amber-100 text-amber-700' :
-                      'bg-red-100 text-red-700'
+              <div className="absolute left-[15px] top-2 bottom-2 w-0.5 bg-orange-200 rounded-full" />
+              {data.timeline.entries.map((entry, i) => (
+                <div key={entry.id} className="relative flex gap-3 pb-4 last:pb-0">
+                  <div className="relative z-10 flex-shrink-0 mt-1">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      i === 0 ? 'bg-orange-500 text-white' : 'bg-white border-2 border-orange-300 text-orange-600'
                     }`}>
-                      {SEVERITY_LABELS[entry.severity]}
-                    </span>
+                      {i + 1}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 leading-relaxed">{entry.description}</p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-gray-800">{entry.dateLabel}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        entry.severity === '轻' ? 'bg-green-100 text-green-700' :
+                        entry.severity === '中' ? 'bg-amber-100 text-amber-700' :
+                        'bg-red-100 text-red-700'
+                      }`}>
+                        {SEVERITY_LABELS[entry.severity]}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 leading-relaxed">{entry.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
           </>
         )}
-      </SectionCard>
+      </AccordionSection>
 
       {/* 问诊清单 */}
-      <SectionCard
+      <AccordionSection
         icon={<ClipboardList className="w-5 h-5 text-green-500" />}
         title="问诊清单"
         color="green"
         hasData={!!data.checklist}
+        isExpanded={expandedSections.has('checklist')}
+        onToggle={() => toggleSection('checklist')}
         onJump={() => setActiveTab('checklist')}
       >
         {data.checklist && (() => {
@@ -500,14 +441,16 @@ export default function VisitPack() {
             </div>
           )
         })()}
-      </SectionCard>
+      </AccordionSection>
 
       {/* 报告解读 */}
-      <SectionCard
+      <AccordionSection
         icon={<FileText className="w-5 h-5 text-blue-500" />}
         title="报告解读"
         color="blue"
         hasData={!!data.report}
+        isExpanded={expandedSections.has('report')}
+        onToggle={() => toggleSection('report')}
         onJump={() => setActiveTab('report')}
       >
         {data.report && (
@@ -533,7 +476,6 @@ export default function VisitPack() {
                 </div>
               ))}
             </div>
-            {/* AI 增强解读 */}
             {data.report.aiEnhanced?.plainExplanation && (
               <div className="mt-3 bg-blue-50 rounded-xl px-4 py-3">
                 <p className="text-xs font-medium text-blue-600 mb-1.5">AI 白话解读</p>
@@ -563,14 +505,16 @@ export default function VisitPack() {
             )}
           </div>
         )}
-      </SectionCard>
+      </AccordionSection>
 
       {/* 诊后备忘 */}
-      <SectionCard
+      <AccordionSection
         icon={<NotebookPen className="w-5 h-5 text-purple-500" />}
         title="诊后备忘"
         color="purple"
         hasData={!!data.postVisit}
+        isExpanded={expandedSections.has('postVisit')}
+        onToggle={() => toggleSection('postVisit')}
         onJump={() => setActiveTab('postvisit')}
       >
         {data.postVisit && (() => {
@@ -659,7 +603,7 @@ export default function VisitPack() {
             </div>
           )
         })()}
-      </SectionCard>
+      </AccordionSection>
 
       {/* 复诊对比 */}
       {comparison ? (
@@ -688,40 +632,111 @@ export default function VisitPack() {
         </div>
       ) : null}
 
-      {/* 底部 */}
+      {/* 底部固定操作栏 */}
+      {hasAnyData && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)]">
+          <div className="app-container py-3 flex gap-2.5">
+            <button
+              onClick={handleCopyAll}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-orange-200 text-orange-600 text-sm font-medium py-3 rounded-2xl hover:bg-orange-50 active:scale-[0.98] transition-all min-h-[48px]"
+            >
+              {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+              {copied ? '已复制' : '复制全文'}
+            </button>
+            <button
+              onClick={handlePrintView}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-white border border-blue-200 text-blue-600 text-sm font-medium py-3 rounded-2xl hover:bg-blue-50 active:scale-[0.98] transition-all min-h-[48px]"
+            >
+              <Printer className="w-4 h-4" />
+              打印
+            </button>
+            <button
+              onClick={handleSave}
+              className="flex-1 flex items-center justify-center gap-1.5 bg-orange-500 text-white text-sm font-medium py-3 rounded-2xl shadow-md shadow-orange-200 hover:bg-orange-600 active:scale-[0.98] transition-all min-h-[48px]"
+            >
+              {saved ? <Check className="w-4 h-4" /> : <Save className="w-4 h-4" />}
+              {saved ? '已保存' : '保存'}
+            </button>
+            {/* 更多菜单 */}
+            <div className="relative">
+              <button
+                onClick={() => setShowMoreMenu(!showMoreMenu)}
+                className="flex items-center justify-center w-12 h-12 bg-white border border-gray-200 text-gray-500 rounded-2xl hover:bg-gray-50 active:scale-[0.98] transition-all"
+              >
+                <MoreHorizontal className="w-5 h-5" />
+              </button>
+              {showMoreMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMoreMenu(false)} />
+                  <div className="absolute bottom-full right-0 mb-2 z-50 bg-white rounded-2xl shadow-xl border border-gray-100 py-1.5 min-w-[160px]">
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false)
+                        handleGenerateShare()
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <Share2 className="w-4 h-4 text-green-500" />
+                      生成分享链接
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowMoreMenu(false)
+                        handleGenerateShare().then(() => setShowQr(true))
+                      }}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 active:bg-gray-100 transition-colors"
+                    >
+                      <QrCode className="w-4 h-4 text-purple-500" />
+                      生成二维码
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {/* safe area for iPhone */}
+          <div className="h-safe-b" />
+        </div>
+      )}
+
+      {/* 底部声明 */}
       <div className="mt-6 text-center">
         <p className="text-xs text-gray-400">本资料由「陪诊锦囊 MedPrep」生成，仅供参考</p>
         <p className="text-xs text-gray-400 mt-1">不构成医疗诊断或治疗建议</p>
       </div>
 
-      {/* 安全提示弹窗 */}
+      {/* 分享弹窗 - Sheet 风格 */}
       {showShareDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-            {/* 弹窗头部 */}
-            <div className="bg-amber-500 px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white">
-                <ShieldAlert className="w-5 h-5" />
-                <h3 className="font-semibold">安全提醒</h3>
-              </div>
-              <button
-                onClick={() => setShowShareDialog(false)}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <SheetModal onClose={() => { setShowShareDialog(false); setShowQr(false) }}>
+          <div className="bg-amber-500 -mx-5 -mt-5 px-5 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-2 text-white">
+              <ShieldAlert className="w-5 h-5" />
+              <h3 className="font-semibold">安全提醒</h3>
+            </div>
+            <button
+              onClick={() => { setShowShareDialog(false); setShowQr(false) }}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-4 mt-5">
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800 leading-relaxed">
+                链接内含就诊信息，任何人打开链接均可查看。请勿公开传播，仅分享给信任的家人。
+              </p>
             </div>
 
-            {/* 弹窗内容 */}
-            <div className="p-5 space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800 leading-relaxed">
-                  链接内含就诊信息，任何人打开链接均可查看。请勿公开传播，仅分享给信任的家人。
-                </p>
+            {shareLoading && (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-6 h-6 text-orange-400 animate-spin" />
+                <span className="ml-2 text-sm text-gray-500">正在生成分享链接...</span>
               </div>
+            )}
 
-              {/* 分享链接 */}
+            {!shareLoading && shareUrl && (
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1.5">分享链接</label>
                 <div className="flex gap-2">
@@ -740,46 +755,37 @@ export default function VisitPack() {
                   </button>
                 </div>
               </div>
+            )}
 
-              {/* 二维码 */}
-              {showQr && (
-                <div className="text-center">
-                  <p className="text-sm font-medium text-gray-600 mb-3">微信扫码查看</p>
-                  <div className="inline-block bg-white p-4 rounded-xl border border-gray-200">
-                    <QRCodeSVG
-                      value={shareUrl}
-                      size={200}
-                      level="H"
-                      includeMargin
-                    />
-                  </div>
-                  <p className="text-xs text-gray-400 mt-2">长按或截图后用微信扫一扫打开</p>
-                </div>
-              )}
+            {showQr && !shareLoading && shareUrl && (
+              <div className="text-center">
+                <p className="text-sm font-medium text-gray-600 mb-3">微信扫码查看</p>
+                <QRCodeImage value={shareUrl} size={240} />
+                <p className="text-xs text-gray-400 mt-2">长按二维码可保存图片，或用微信扫一扫打开</p>
+              </div>
+            )}
 
-              <button
-                onClick={() => {
-                  setShowShareDialog(false)
-                  setShowQr(false)
-                }}
-                className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
-              >
-                我知道了
-              </button>
-            </div>
+            <button
+              onClick={() => { setShowShareDialog(false); setShowQr(false) }}
+              className="w-full py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+            >
+              我知道了
+            </button>
           </div>
-        </div>
+        </SheetModal>
       )}
     </div>
   )
 }
 
-/** 分区卡片 */
-function SectionCard({
+/** Accordion 分区卡片 */
+function AccordionSection({
   icon,
   title,
   color,
   hasData,
+  isExpanded,
+  onToggle,
   onJump,
   children,
 }: {
@@ -787,6 +793,8 @@ function SectionCard({
   title: string
   color: 'orange' | 'green' | 'blue' | 'purple'
   hasData: boolean
+  isExpanded: boolean
+  onToggle: () => void
   onJump: () => void
   children?: React.ReactNode
 }) {
@@ -799,26 +807,38 @@ function SectionCard({
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border border-orange-100 border-l-4 ${borderMap[color]} mb-4 overflow-hidden`}>
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <button
+        onClick={hasData ? onToggle : undefined}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50/50 transition-colors text-left"
+      >
         <div className="flex items-center gap-2.5">
           {icon}
           <h3 className="text-base font-semibold text-gray-800">{title}</h3>
         </div>
-        {hasData ? (
-          <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">已填写</span>
-        ) : (
-          <button
-            onClick={onJump}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500 transition-colors"
-          >
-            尚未填写
-            <ExternalLink className="w-3 h-3" />
-          </button>
-        )}
-      </div>
-      {hasData && <div className="p-4">{children}</div>}
-      {!hasData && (
-        <div className="p-4 text-center">
+        <div className="flex items-center gap-2">
+          {hasData ? (
+            <>
+              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">已填写</span>
+              <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+            </>
+          ) : (
+            <button
+              onClick={(e) => { e.stopPropagation(); onJump() }}
+              className="flex items-center gap-1 text-xs text-gray-400 hover:text-orange-500 transition-colors"
+            >
+              尚未填写
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </button>
+      {hasData && (
+        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+          <div className="p-4 border-t border-gray-100">{children}</div>
+        </div>
+      )}
+      {!hasData && isExpanded && (
+        <div className="p-4 border-t border-gray-100 text-center">
           <p className="text-sm text-gray-400">暂无数据</p>
           <button
             onClick={onJump}
@@ -828,6 +848,27 @@ function SectionCard({
           </button>
         </div>
       )}
+    </div>
+  )
+}
+
+/** Sheet 风格底部弹窗 */
+export function SheetModal({
+  onClose,
+  children,
+}: {
+  onClose: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/40" />
+      <div
+        className="relative bg-white rounded-t-2xl sm:rounded-2xl shadow-xl max-w-md w-full max-h-[85vh] overflow-y-auto p-5 animate-[slideUp_0.25s_ease-out]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
     </div>
   )
 }
@@ -922,7 +963,6 @@ function ComparisonSection({
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-orange-100 border-l-4 border-l-teal-400 mb-4 overflow-hidden">
-      {/* 标题栏 */}
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
@@ -934,23 +974,17 @@ function ComparisonSection({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">有数据</span>
-          {expanded ? (
-            <ChevronUp className="w-5 h-5 text-gray-400" />
-          ) : (
-            <ChevronDown className="w-5 h-5 text-gray-400" />
-          )}
+          <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`} />
         </div>
       </button>
 
       {expanded && (
         <div className="px-4 pb-4 space-y-4">
-          {/* 免责声明 */}
           <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-start gap-2">
             <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-amber-800">对比基于用户自行记录，不能替代医疗判断</p>
           </div>
 
-          {/* 症状变化 */}
           {comparison.symptomComparison.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">症状变化</h4>
@@ -988,7 +1022,6 @@ function ComparisonSection({
             </div>
           )}
 
-          {/* 随访完成度 */}
           {comparison.followUpStatus.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-1.5">
@@ -1015,7 +1048,6 @@ function ComparisonSection({
             </div>
           )}
 
-          {/* 建议重点问医生 */}
           {comparison.suggestedQuestions.length > 0 && (
             <div>
               <h4 className="text-sm font-semibold text-gray-700 mb-2">本次建议重点问医生</h4>

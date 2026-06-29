@@ -1,6 +1,15 @@
 import { supabase } from '@/lib/supabaseClient'
 import type { VisitData } from '@/utils/visitStore'
-import { getUnsyncedLocalHistory, markSynced, getLocalHistoryCache } from '@/utils/visitStore'
+import {
+  getUnsyncedLocalHistory,
+  markSynced,
+  getLocalHistoryCache,
+  getLocalHistoryEntryById,
+  deleteLocalHistoryEntry,
+  isLocalVisitId,
+  localVisitIdFromTimestamp,
+  HISTORY_KEY,
+} from '@/utils/visitStore'
 
 /** 判断错误是否为"表不存在"（SQL 未执行），应静默降级 */
 function isTableNotFoundError(error: unknown): boolean {
@@ -108,8 +117,24 @@ export async function fetchVisits(userId: string): Promise<VisitListItem[]> {
   }
 }
 
-/** 获取单条就诊记录详情 */
+/** 将本地历史条目转为 VisitRecord */
+function localEntryToVisitRecord(entry: { timestamp: number; label: string; data: VisitData }): VisitRecord {
+  return {
+    id: localVisitIdFromTimestamp(entry.timestamp),
+    user_id: 'local',
+    title: entry.label,
+    visit_data: entry.data,
+    created_at: new Date(entry.timestamp).toISOString(),
+  }
+}
+
+/** 获取单条就诊记录详情（含本地 fallback） */
 export async function fetchVisitById(id: string, userId: string): Promise<VisitRecord | null> {
+  if (isLocalVisitId(id)) {
+    const entry = getLocalHistoryEntryById(id)
+    return entry ? localEntryToVisitRecord(entry) : null
+  }
+
   try {
     const { data, error } = await supabase
       .from('visits')
@@ -166,8 +191,65 @@ export async function saveVisit(
   }
 }
 
+/** 更新就诊记录 */
+export async function updateVisit(
+  id: string,
+  userId: string,
+  visitData: VisitData,
+  title?: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (isLocalVisitId(id)) {
+    const entry = getLocalHistoryEntryById(id)
+    if (!entry) return { success: false, error: '记录不存在' }
+    try {
+      const history = getLocalHistoryCache()
+      const idx = history.findIndex((e) => e.timestamp === entry.timestamp)
+      if (idx < 0) return { success: false, error: '记录不存在' }
+      history[idx] = {
+        ...entry,
+        label: title || generateVisitTitle(visitData),
+        data: visitData,
+      }
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history))
+      return { success: true }
+    } catch {
+      return { success: false, error: '更新失败' }
+    }
+  }
+
+  try {
+    const { error } = await supabase
+      .from('visits')
+      .update({
+        title: title || generateVisitTitle(visitData),
+        visit_data: visitData,
+      })
+      .eq('id', id)
+      .eq('user_id', userId)
+
+    if (error) {
+      if (isTableNotFoundError(error)) {
+        return { success: false, error: '数据库未配置' }
+      }
+      return { success: false, error: error.message }
+    }
+    return { success: true }
+  } catch (e) {
+    if (isTableNotFoundError(e)) {
+      return { success: false, error: '数据库未配置' }
+    }
+    return { success: false, error: '更新失败' }
+  }
+}
+
 /** 删除就诊记录 */
 export async function deleteVisit(id: string, userId: string): Promise<{ success: boolean; error?: string }> {
+  if (isLocalVisitId(id)) {
+    return deleteLocalHistoryEntry(id)
+      ? { success: true }
+      : { success: false, error: '记录不存在' }
+  }
+
   try {
     const { error } = await supabase
       .from('visits')
@@ -275,7 +357,7 @@ export async function fetchVisitsWithFallback(userId: string): Promise<{
       .map((entry) => {
         const summary = extractSummary(entry.data)
         return {
-          id: `local-${entry.timestamp}`,
+          id: localVisitIdFromTimestamp(entry.timestamp),
           title: entry.label,
           created_at: new Date(entry.timestamp).toISOString(),
           department: summary.department,

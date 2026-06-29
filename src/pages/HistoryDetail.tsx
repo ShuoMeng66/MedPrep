@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import { fetchVisitById, deleteVisit } from '@/services/visitService'
+import { fetchVisitById, deleteVisit, type VisitRecord } from '@/services/visitService'
 import type { VisitData } from '@/utils/visitStore'
-import type { VisitRecord } from '@/services/visitService'
+import { writeVisitData } from '@/utils/visitStore'
 import {
   ArrowLeft, Clock, ClipboardList, FileText, NotebookPen, Eye, Check,
-  AlertCircle, Stethoscope, Pill, CalendarClock, Trash2, Loader2,
+  AlertCircle, Stethoscope, Pill, CalendarClock, Trash2, Loader2, CopyPlus,
 } from 'lucide-react'
 
 const SEVERITY_LABELS: Record<string, string> = { '轻': '轻度', '中': '中度', '重': '重度' }
@@ -28,6 +28,12 @@ export default function HistoryDetail() {
       setLoading(false)
     })
   }, [user, id])
+
+  const handleReuse = () => {
+    if (!record) return
+    writeVisitData(record.visit_data as VisitData)
+    navigate('/app')
+  }
 
   const handleDelete = async () => {
     if (!user || !id) return
@@ -75,7 +81,7 @@ export default function HistoryDetail() {
 
   return (
     <div className="min-h-screen bg-orange-50/50 pb-safe">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="app-container py-8">
         {/* 返回 */}
         <button
           onClick={() => navigate('/history')}
@@ -313,6 +319,13 @@ export default function HistoryDetail() {
 
         {/* 底部操作 */}
         <div className="mt-6 space-y-3">
+          <button
+            onClick={handleReuse}
+            className="w-full flex items-center justify-center gap-2 bg-orange-500 text-white font-medium py-3 rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all shadow-md shadow-orange-200"
+          >
+            <CopyPlus className="w-4 h-4" />
+            基于此就诊新建
+          </button>
           {deleteConfirm ? (
             <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
               <p className="text-sm text-red-700 mb-3">确定要删除此记录吗？此操作不可恢复。</p>

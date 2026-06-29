@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   AlertCircle,
   Clock,
@@ -10,8 +10,10 @@ import {
   CalendarClock,
   Eye,
   Check,
+  Loader2,
 } from 'lucide-react'
-import { decodeShareData } from '@/utils/shareUtils'
+import { decodeShareData, isShortShareId, getShareHashPayload } from '@/utils/shareUtils'
+import { getShare } from '@/services/shareService'
 import type { VisitData } from '@/utils/visitStore'
 import type { TimelineEntry } from '@/utils/timelineParser'
 import type { QuestionItem } from '@/utils/questionGenerator'
@@ -19,9 +21,67 @@ import type { QuestionItem } from '@/utils/questionGenerator'
 const SEVERITY_LABELS: Record<string, string> = { '轻': '轻度', '中': '中度', '重': '重度' }
 
 export default function ShareView() {
-  const shareResult = useMemo(() => decodeShareData(), [])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [shortData, setShortData] = useState<VisitData | null>(null)
 
-  if (!shareResult) {
+  // 检测是否为短 UUID 格式
+  const isShort = isShortShareId()
+
+  useEffect(() => {
+    if (!isShort) return
+    const payload = getShareHashPayload()
+    if (!payload) return
+
+    setLoading(true)
+    getShare(payload).then((result) => {
+      setLoading(false)
+      if ('data' in result) {
+        setShortData(result.data)
+      } else {
+        setError(result.error)
+      }
+    })
+  }, [isShort])
+
+  // 旧版压缩格式解码
+  const legacyResult = useMemo(() => {
+    if (isShort) return null
+    return decodeShareData()
+  }, [isShort])
+
+  // 加载中
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-orange-50/50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-10 text-center max-w-md">
+          <Loader2 className="w-8 h-8 text-orange-400 animate-spin mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">正在加载分享内容</h2>
+          <p className="text-sm text-gray-500">请稍候...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 短链接：错误或过期
+  if (isShort && error) {
+    return (
+      <div className="min-h-screen bg-orange-50/50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-10 text-center max-w-md">
+          <div className="bg-red-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle className="w-8 h-8 text-red-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">分享链接已失效</h2>
+          <p className="text-sm text-gray-500">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // 确定数据源
+  const data: VisitData | null = isShort ? shortData : legacyResult?.data ?? null
+
+  if (!data) {
     return (
       <div className="min-h-screen bg-orange-50/50 flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-sm border border-orange-100 p-10 text-center max-w-md">
@@ -35,7 +95,6 @@ export default function ShareView() {
     )
   }
 
-  const data = shareResult.data
   const hasAnyData = data.timeline || data.checklist || data.report || data.postVisit
 
   if (!hasAnyData) {

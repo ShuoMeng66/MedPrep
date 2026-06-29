@@ -13,6 +13,7 @@ import {
   Eye,
   Users,
   Brain,
+  Bell,
 } from 'lucide-react'
 import {
   parsePostVisit,
@@ -22,6 +23,9 @@ import {
 } from '@/utils/postVisitParser'
 import { writeVisitData } from '@/utils/visitStore'
 import { callLLM, LLMError, type LLMPostVisitResult } from '@/services/llmService'
+import SetMedicationReminderModal from '@/components/SetMedicationReminderModal'
+import SetFollowUpReminderModal from '@/components/SetFollowUpReminderModal'
+import { useTabStore } from '@/store/useTabStore'
 
 const EXAMPLE_TEXT = `医生诊断为急性上呼吸道感染，建议多休息、多喝水。
 开具阿莫西林胶囊，每次0.5g，每日3次，饭后服用，注意有无过敏反应。
@@ -40,6 +44,9 @@ export default function PostVisitMemo() {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiEnhanced, setAiEnhanced] = useState(false)
   const [aiError, setAiError] = useState<string | null>(null)
+  const [showMedReminder, setShowMedReminder] = useState(false)
+  const [showFollowReminder, setShowFollowReminder] = useState(false)
+  const setActiveTab = useTabStore((s) => s.setActiveTab)
 
   const copyToClipboard = useCallback(async (content: string, setState: (v: boolean) => void) => {
     try {
@@ -347,10 +354,23 @@ export default function PostVisitMemo() {
               </tbody>
             </table>
           </div>
+          <button
+            onClick={() => setShowMedReminder(true)}
+            className="mt-3 w-full flex items-center justify-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm font-medium py-2.5 rounded-xl hover:bg-green-100 active:scale-[0.98] transition-all min-h-[44px]"
+          >
+            <Bell className="w-4 h-4" />
+            设为用药提醒
+          </button>
         </CardWrapper>
       )}
 
-      {/* 卡片 3：复查随访 */}
+      {showMedReminder && result && (
+        <SetMedicationReminderModal
+          medications={result.medications}
+          onClose={() => setShowMedReminder(false)}
+          onSaved={() => setActiveTab('medication')}
+        />
+      )}
       {result.followUps.length > 0 && (
         <CardWrapper
           icon={<CalendarClock className="w-5 h-5" />}
@@ -377,7 +397,22 @@ export default function PostVisitMemo() {
               </div>
             ))}
           </div>
+          <button
+            onClick={() => setShowFollowReminder(true)}
+            className="mt-3 w-full flex items-center justify-center gap-2 bg-purple-50 border border-purple-200 text-purple-700 text-sm font-medium py-2.5 rounded-xl hover:bg-purple-100 active:scale-[0.98] transition-all min-h-[44px]"
+          >
+            <CalendarClock className="w-4 h-4" />
+            设为复查提醒
+          </button>
         </CardWrapper>
+      )}
+
+      {showFollowReminder && result && (
+        <SetFollowUpReminderModal
+          followUps={result.followUps}
+          onClose={() => setShowFollowReminder(false)}
+          onSaved={() => setActiveTab('medication')}
+        />
       )}
 
       {/* 卡片 4：观察提醒 */}

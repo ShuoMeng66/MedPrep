@@ -106,3 +106,38 @@ CREATE POLICY "visits_delete_own" ON public.visits
 --     bucket_id = 'avatars'
 --     AND (storage.foldername(name))[1] = auth.uid()::text
 --   );
+
+-- 6. shares 表 — 分享数据（短链接用）
+-- =====================================================
+CREATE TABLE public.shares (
+  id          text PRIMARY KEY,
+  visit_data  jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+
+-- 索引：按创建时间排序（用于清理过期数据）
+CREATE INDEX idx_shares_created ON public.shares (created_at);
+
+-- RLS：允许所有人读取（分享链接无需登录）
+ALTER TABLE public.shares ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "shares_select_public" ON public.shares
+  FOR SELECT USING (true);
+
+CREATE POLICY "shares_insert_authenticated" ON public.shares
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- 清理 7 天前过期分享（可在 SQL Editor 手动执行，或通过 pg_cron / Edge Function 定时调用）
+CREATE OR REPLACE FUNCTION public.cleanup_expired_shares()
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = ''
+AS $$
+DECLARE
+  deleted_count integer;
+BEGIN
+  DELETE FROM public.shares WHERE created_at < now() - interval '7 days';
+  GET DIAGNOSTICS deleted_count = ROW_COUNT;
+  RETURN deleted_count;
+END;
+$$;

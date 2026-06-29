@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { fetchVisitsWithFallback, deleteVisit, type VisitListItem } from '@/services/visitService'
-import { Clock, ChevronRight, FileText, NotebookPen, Trash2, Loader2, Stethoscope, ArrowLeft, AlertCircle, WifiOff } from 'lucide-react'
+import { Clock, ChevronRight, NotebookPen, Trash2, Loader2, Stethoscope, ArrowLeft, AlertCircle, WifiOff, Plus } from 'lucide-react'
 
 export default function History() {
   const { user } = useAuth()
@@ -49,17 +49,14 @@ export default function History() {
 
   const formatDate = (ts: string) => {
     const d = new Date(ts)
-    const y = d.getFullYear()
     const m = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
-    const h = String(d.getHours()).padStart(2, '0')
-    const min = String(d.getMinutes()).padStart(2, '0')
-    return `${y}-${m}-${day} ${h}:${min}`
+    return { monthDay: `${m}/${day}`, full: `${d.getFullYear()}-${m}-${day} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` }
   }
 
   return (
     <div className="min-h-screen bg-orange-50/50 pb-safe">
-      <div className="max-w-2xl mx-auto px-4 py-8">
+      <div className="app-container py-8">
         {/* 顶部导航 */}
         <button
           onClick={() => navigate('/app')}
@@ -108,74 +105,75 @@ export default function History() {
         )}
 
         {/* 空状态 */}
-        {!loading && !error && visits.length === 0 && (
+        {!loading && visits.length === 0 && (
           <div className="bg-white rounded-2xl border border-orange-100 p-10 text-center">
-            <div className="bg-orange-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-8 h-8 text-orange-400" />
+            <div className="bg-orange-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-5">
+              <NotebookPen className="w-10 h-10 text-orange-400" />
             </div>
             <h3 className="text-lg font-semibold text-gray-700 mb-2">暂无就诊记录</h3>
-            <p className="text-sm text-gray-500 mb-4">
+            <p className="text-sm text-gray-500 mb-6">
               在「就诊包」页面保存就诊资料后，记录将同步到此处
             </p>
             <button
               onClick={() => navigate('/app')}
-              className="text-sm text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-xl px-4 py-2 transition-colors"
+              className="inline-flex items-center gap-2 bg-orange-500 text-white text-sm font-medium px-6 py-3 rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all shadow-md shadow-orange-200"
             >
-              前往填写就诊信息
+              <Plus className="w-4 h-4" />
+              去记录一次就诊
             </button>
           </div>
         )}
 
         {/* 列表 */}
-        {!loading && !error && visits.length > 0 && (
+        {!loading && visits.length > 0 && (
           <div className="space-y-3">
-            {visits.map((v) => (
-              <div
-                key={v.id}
-                className="bg-white rounded-2xl border border-orange-100 shadow-sm overflow-hidden"
-              >
-                <button
-                  onClick={() => navigate(`/history/${v.id}`)}
-                  className="w-full flex items-center justify-between px-4 py-4 hover:bg-orange-50/50 transition-colors text-left"
+            {visits.map((v) => {
+              const date = formatDate(v.created_at)
+              const showDeleteConfirm = deleteConfirmId === v.id
+              return (
+                <div
+                  key={v.id}
+                  className="relative bg-white rounded-2xl border border-orange-100 shadow-sm overflow-hidden group"
                 >
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="bg-orange-100 rounded-xl p-2 flex-shrink-0">
-                      <NotebookPen className="w-5 h-5 text-orange-500" />
+                  {/* 主卡片区域 - 整卡可点击 */}
+                  <button
+                    onClick={() => navigate(`/history/${v.id}`)}
+                    className="w-full flex items-center gap-4 px-4 py-4 hover:bg-orange-50/50 transition-colors text-left"
+                  >
+                    {/* 左侧：日期 */}
+                    <div className="flex-shrink-0 w-14 text-center">
+                      <p className="text-lg font-bold text-orange-500 leading-tight">{date.monthDay}</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">就诊</p>
                     </div>
-                    <div className="min-w-0">
+
+                    {/* 右侧：摘要信息 */}
+                    <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-gray-800 truncate">{v.title}</p>
                       <div className="flex items-center gap-2 mt-1">
-                        <p className="text-xs text-gray-400">{formatDate(v.created_at)}</p>
                         {v.department && (
                           <span className="text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
                             <Stethoscope className="w-3 h-3" />
                             {v.department}
                           </span>
                         )}
+                        <span className="text-xs text-gray-400">{date.full}</span>
                       </div>
                       {v.symptomSummary && (
-                        <p className="text-xs text-gray-500 mt-1 truncate">{v.symptomSummary}</p>
+                        <p className="text-xs text-gray-500 mt-1.5 line-clamp-2">{v.symptomSummary}</p>
                       )}
                     </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0 ml-2" />
-                </button>
 
-                {/* 操作栏 */}
-                <div className="border-t border-gray-50 px-4 py-2 flex justify-end gap-2">
-                  <button
-                    onClick={() => navigate(`/history/${v.id}`)}
-                    className="flex items-center gap-1 text-xs text-gray-500 hover:text-orange-600 py-1 px-2 rounded-lg hover:bg-orange-50 transition-colors"
-                  >
-                    查看
+                    <ChevronRight className="w-5 h-5 text-gray-300 flex-shrink-0" />
                   </button>
-                  {deleteConfirmId === v.id ? (
-                    <div className="flex items-center gap-1">
-                      <span className="text-xs text-red-500">确认删除？</span>
+
+                  {/* 右侧删除按钮 */}
+                  {showDeleteConfirm ? (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 bg-white rounded-xl px-3 py-2 shadow-md border border-red-200">
+                      <span className="text-xs text-red-500 font-medium">确认删除？</span>
                       <button
                         onClick={() => handleDelete(v.id)}
                         disabled={deletingId === v.id}
-                        className="text-xs text-red-600 font-medium px-2 py-1 rounded-lg hover:bg-red-50 transition-colors"
+                        className="text-xs text-white bg-red-500 font-medium px-2.5 py-1 rounded-lg hover:bg-red-600 active:scale-[0.98] transition-all"
                       >
                         {deletingId === v.id ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -190,16 +188,19 @@ export default function History() {
                     </div>
                   ) : (
                     <button
-                      onClick={() => setDeleteConfirmId(v.id)}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-red-500 py-1 px-2 rounded-lg hover:bg-red-50 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setDeleteConfirmId(v.id)
+                      }}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors sm:opacity-0 sm:group-hover:opacity-100 touch-manipulation"
+                      aria-label="删除记录"
                     >
-                      <Trash2 className="w-3 h-3" />
-                      删除
+                      <Trash2 className="w-5 h-5" />
                     </button>
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

@@ -4,3 +4,6 @@ compatibility_date = "2025-01-01"
 
 # 部署后获得 worker URL，例如 https://medprep-ai-proxy.xxx.workers.dev
 # 将其填入前端 .env 文件的 VITE_AI_PROXY_URL
+#
+# 前端部署：GitHub Pages → https://shuomeng66.github.io/MedPrep/
+# API Key：可在 worker.js 内写回退值，或通过 wrangler secret put BAILIAN_API_KEY 设置

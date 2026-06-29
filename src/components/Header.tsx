@@ -14,7 +14,7 @@ export default function Header() {
     <header className="mb-4">
       {/* 品牌区域 */}
       <div className="bg-gradient-to-br from-orange-400 to-orange-500 text-white">
-        <div className="max-w-lg mx-auto px-4 py-6 sm:py-10">
+        <div className="app-container py-6 sm:py-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="bg-white/20 rounded-2xl p-2.5">
@@ -59,7 +59,7 @@ export default function Header() {
       </div>
 
       {/* 免责声明 */}
-      <div className="max-w-lg mx-auto px-4 -mt-3 relative z-10">
+      <div className="app-container -mt-3 relative z-10">
         <div className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-start gap-2.5 shadow-sm">
           <AlertCircle className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800 leading-relaxed">

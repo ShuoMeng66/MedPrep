@@ -156,7 +156,7 @@ export default function Login() {
 
   return (
     <div className="h-screen overflow-y-auto bg-gradient-to-br from-orange-50 via-white to-amber-50 pb-safe">
-      <div className="max-w-lg mx-auto px-4 py-8 sm:py-12">
+      <div className="app-container py-8 sm:py-12">
         {/* Logo 区域 */}
         <div className="text-center mb-6">
           <div className="inline-flex items-center justify-center bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl p-3 mb-4 shadow-lg shadow-orange-200">

@@ -6,6 +6,7 @@ import {
   ArrowLeft, Camera, Mail, Lock, AlertCircle, Trash2,
   Eye, EyeOff, Upload, Loader2, CloudUpload,
 } from 'lucide-react'
+import { SheetModal } from '@/components/VisitPack'
 
 export default function Settings() {
   const { user, profile, signOut, updateProfile, bindEmail, uploadAvatar, deleteAccount, syncLocalData, checkUnsyncedData } = useAuth()
@@ -62,6 +63,12 @@ export default function Settings() {
     }
   }
 
+  // 取消编辑
+  const handleCancelNickname = () => {
+    setEditingNickname(false)
+    setNickname(profile?.nickname || '')
+  }
+
   // 选择头像
   const handleAvatarClick = () => {
     if (avatarUploading) return
@@ -82,7 +89,6 @@ export default function Settings() {
     } else {
       showToast('success', '头像已更新')
     }
-    // 清空 input 以便重复选择同一文件
     e.target.value = ''
   }
 
@@ -138,14 +144,14 @@ export default function Settings() {
     }
   }
 
-  // 头像 URL：优先使用自定义头像，否则用 DiceBear 首字母
+  // 头像 URL
   const avatarUrl = profile?.avatar_url
     ? profile.avatar_url
     : `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(profile?.nickname || '用户')}&backgroundColor=f97316&textColor=ffffff`
 
   return (
     <div className="min-h-screen bg-orange-50/50 pb-safe">
-      <div className="max-w-lg mx-auto px-4 py-8">
+      <div className="app-container py-8">
         {/* 顶部导航 */}
         <button
           onClick={() => navigate('/app')}
@@ -171,49 +177,47 @@ export default function Settings() {
 
         {/* 头像 & 昵称 */}
         <div className="bg-white rounded-2xl border border-orange-100 shadow-sm p-6 mb-4">
-          {/* 头像 */}
+          {/* 头像 - 大圆形点击区 */}
           <div className="flex flex-col items-center mb-5">
-            <div className="relative group">
-              <button
-                onClick={handleAvatarClick}
-                disabled={avatarUploading}
-                className="w-20 h-20 rounded-full overflow-hidden ring-4 ring-orange-100 hover:ring-orange-300 transition-all"
-              >
-                <img
-                  src={avatarUrl}
-                  alt="头像"
-                  className="w-full h-full object-cover"
-                  onError={(e) => {
-                    // 加载失败时用首字母占位
-                    (e.target as HTMLImageElement).style.display = 'none'
-                  }}
-                />
-                {/* 首字母 fallback */}
-                <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-2xl font-bold">
-                  {(profile?.nickname || '用户')[0]}
-                </div>
-              </button>
+            <button
+              onClick={handleAvatarClick}
+              disabled={avatarUploading}
+              className="relative w-24 h-24 rounded-full overflow-hidden ring-4 ring-orange-100 hover:ring-orange-300 active:scale-95 transition-all touch-target"
+            >
+              <img
+                src={avatarUrl}
+                alt="头像"
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none'
+                }}
+              />
+              {/* 首字母 fallback */}
+              <div className="absolute inset-0 bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center text-white text-3xl font-bold">
+                {(profile?.nickname || '用户')[0]}
+              </div>
               {/* 上传遮罩 */}
-              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity">
                 {avatarUploading ? (
                   <Loader2 className="w-6 h-6 text-white animate-spin" />
                 ) : (
-                  <Camera className="w-5 h-5 text-white" />
+                  <Camera className="w-6 h-6 text-white" />
                 )}
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png"
-                onChange={handleFileChange}
-                className="hidden"
-              />
-            </div>
-            <p className="text-xs text-gray-400 mt-2">点击更换头像（JPG/PNG，最大 2MB）</p>
+            </button>
+            <p className="text-xs text-gray-400 mt-3">点击更换头像（JPG/PNG，最大 2MB）</p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png"
+              onChange={handleFileChange}
+              className="hidden"
+            />
           </div>
 
           {/* 登录状态 */}
-          <div className="text-center mb-4">
+          <div className="text-center mb-5">
             <p className="text-sm text-gray-500">
               {isAnonymous ? '体验账户，请绑定邮箱' : (user?.email || '')}
             </p>
@@ -225,41 +229,48 @@ export default function Settings() {
             )}
           </div>
 
-          {/* 昵称 */}
+          {/* 昵称 - 分离的输入和保存 */}
           <div className="max-w-xs mx-auto">
             {editingNickname ? (
-              <div className="flex items-center gap-2">
+              <div className="space-y-3">
                 <input
                   value={nickname}
                   onChange={(e) => setNickname(e.target.value)}
-                  className="flex-1 border border-orange-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                  className="w-full border border-orange-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 text-center"
                   maxLength={20}
                   placeholder="2-20 个字"
                   autoFocus
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveNickname() }}
                 />
-                <button
-                  onClick={handleSaveNickname}
-                  disabled={nicknameSaving}
-                  className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                >
-                  {nicknameSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
-                </button>
-                <button
-                  onClick={() => { setEditingNickname(false); setNickname(profile?.nickname || '') }}
-                  className="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleCancelNickname}
+                    className="flex-1 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
+                  >
+                    取消
+                  </button>
+                  <button
+                    onClick={handleSaveNickname}
+                    disabled={nicknameSaving}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-orange-500 text-white text-sm font-medium rounded-xl hover:bg-orange-600 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    {nicknameSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Check className="w-4 h-4" />
+                    )}
+                    保存昵称
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center justify-center gap-2">
                 <p className="text-lg font-semibold text-gray-800">{profile?.nickname || '用户'}</p>
                 <button
                   onClick={() => { setEditingNickname(true); setNickname(profile?.nickname || '') }}
-                  className="p-1.5 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
+                  className="p-2 text-gray-400 hover:text-orange-500 hover:bg-orange-50 rounded-lg transition-colors"
                 >
-                  <Edit3 className="w-3.5 h-3.5" />
+                  <Edit3 className="w-4 h-4" />
                 </button>
               </div>
             )}
@@ -364,16 +375,16 @@ export default function Settings() {
           同步本地数据到云端
         </button>
 
-        {/* 退出登录 */}
+        {/* 退出登录 - 红色次要样式 */}
         <button
           onClick={handleSignOut}
-          className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-600 font-medium py-3 rounded-xl hover:bg-gray-50 active:scale-[0.98] transition-all mb-3"
+          className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-500 font-medium py-3 rounded-xl hover:bg-red-50 active:scale-[0.98] transition-all mb-3"
         >
           <LogOut className="w-4 h-4" />
           退出登录
         </button>
 
-        {/* 删除账户 */}
+        {/* 删除账户 - 红色次要样式 */}
         <button
           onClick={() => { setShowDeleteDialog(true); setDeleteConfirmText('') }}
           className="w-full flex items-center justify-center gap-2 bg-white border border-red-200 text-red-500 font-medium py-3 rounded-xl hover:bg-red-50 active:scale-[0.98] transition-all"
@@ -383,66 +394,64 @@ export default function Settings() {
         </button>
       </div>
 
-      {/* 删除账户确认弹窗 */}
+      {/* 删除账户确认弹窗 - Sheet 风格 */}
       {showDeleteDialog && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full overflow-hidden">
-            <div className="bg-red-500 px-5 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white">
-                <Trash2 className="w-5 h-5" />
-                <h3 className="font-semibold">删除账户</h3>
-              </div>
+        <SheetModal onClose={() => setShowDeleteDialog(false)}>
+          <div className="bg-red-500 -mx-5 -mt-5 px-5 py-4 flex items-center justify-between rounded-t-2xl">
+            <div className="flex items-center gap-2 text-white">
+              <Trash2 className="w-5 h-5" />
+              <h3 className="font-semibold">删除账户</h3>
+            </div>
+            <button
+              onClick={() => setShowDeleteDialog(false)}
+              className="text-white/80 hover:text-white transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          <div className="space-y-4 mt-5">
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-800 leading-relaxed">
+                删除后所有就诊记录、个人资料将被永久移除，数据不可恢复。如您已绑定邮箱，请确认您知道该操作的影响。
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                请输入「确认删除」以继续
+              </label>
+              <input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder="确认删除"
+                className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
+              />
+            </div>
+
+            <div className="flex gap-2">
               <button
                 onClick={() => setShowDeleteDialog(false)}
-                className="text-white/80 hover:text-white transition-colors"
+                className="flex-1 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
               >
-                <X className="w-5 h-5" />
+                取消
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteBusy || deleteConfirmText !== '确认删除'}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                {deleteBusy ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                确认删除
               </button>
             </div>
-
-            <div className="p-5 space-y-4">
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-2.5">
-                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                <p className="text-sm text-red-800 leading-relaxed">
-                  删除后所有就诊记录、个人资料将被永久移除，数据不可恢复。如您已绑定邮箱，请确认您知道该操作的影响。
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                  请输入「确认删除」以继续
-                </label>
-                <input
-                  value={deleteConfirmText}
-                  onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="确认删除"
-                  className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100 transition-all"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowDeleteDialog(false)}
-                  className="flex-1 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={deleteBusy || deleteConfirmText !== '确认删除'}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 active:scale-[0.98] transition-all disabled:opacity-50"
-                >
-                  {deleteBusy ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4" />
-                  )}
-                  确认删除
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
+        </SheetModal>
       )}
     </div>
   )

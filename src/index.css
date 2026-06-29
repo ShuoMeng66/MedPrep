@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  /* 手机窄栏，平板/桌面逐步放宽（与 README 72rem 一致） */
+  .app-container {
+    @apply w-full mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-lg sm:max-w-3xl lg:max-w-5xl xl:max-w-6xl;
+  }
+}
+
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
   line-height: 1.6;
@@ -64,4 +72,37 @@ button {
   .hover-only {
     display: none !important;
   }
+}
+
+/* Sheet modal slide-up animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Reduce motion for users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Lazy loading images placeholder */
+img[loading="lazy"] {
+  background: #f3f4f6;
 }

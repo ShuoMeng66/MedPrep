@@ -7,6 +7,7 @@ import Login from '@/pages/Login'
 import History from '@/pages/History'
 import HistoryDetail from '@/pages/HistoryDetail'
 import Settings from '@/pages/Settings'
+import PrintView from '@/pages/PrintView'
 import ShareView from '@/components/ShareView'
 import { isShareUrl } from '@/utils/shareUtils'
 
@@ -29,6 +30,7 @@ export default function App() {
           <Route path="/history" element={<AuthGuard><History /></AuthGuard>} />
           <Route path="/history/:id" element={<AuthGuard><HistoryDetail /></AuthGuard>} />
           <Route path="/settings" element={<AuthGuard><Settings /></AuthGuard>} />
+          <Route path="/print" element={<AuthGuard><PrintView /></AuthGuard>} />
 
           {/* 默认重定向 */}
           <Route path="*" element={<Navigate to="/app" replace />} />

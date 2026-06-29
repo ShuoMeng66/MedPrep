@@ -5,7 +5,9 @@ import SymptomTimeline from '@/components/SymptomTimeline'
 import ConsultChecklist from '@/components/ConsultChecklist'
 import ReportReader from '@/components/ReportReader'
 import PostVisitMemo from '@/components/PostVisitMemo'
+import MedicationToday from '@/components/MedicationToday'
 import VisitPack from '@/components/VisitPack'
+import InstallPrompt from '@/components/InstallPrompt'
 import { useTabStore } from '@/store/useTabStore'
 import { useAuth } from '@/contexts/AuthContext'
 import { ShieldAlert, ArrowRight } from 'lucide-react'
@@ -23,7 +25,7 @@ export default function Home() {
 
       {/* 匿名用户提示条 */}
       {isAnonymous && (
-        <div className="max-w-lg mx-auto px-4 mb-4">
+        <div className="app-container mb-4">
           <button
             onClick={() => navigate('/settings')}
             className="w-full bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 flex items-center justify-between hover:bg-amber-100 transition-colors active:scale-95 transition-transform group"
@@ -41,14 +43,16 @@ export default function Home() {
           </button>
         </div>
       )}
-      <div className="max-w-lg mx-auto px-4 pb-24 pb-safe">
+      <div className="app-container pb-28 pb-safe sm:pb-10">
         <TabBar />
         {activeTab === 'timeline' && <SymptomTimeline />}
         {activeTab === 'checklist' && <ConsultChecklist />}
         {activeTab === 'report' && <ReportReader />}
         {activeTab === 'postvisit' && <PostVisitMemo />}
+        {activeTab === 'medication' && <MedicationToday />}
         {activeTab === 'visitpack' && <VisitPack />}
       </div>
+      <InstallPrompt />
     </div>
   )
 }

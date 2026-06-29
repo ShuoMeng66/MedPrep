@@ -9,6 +9,7 @@ export default {
     },
     extend: {
       padding: {
+        safe: 'env(safe-area-inset-bottom)',
         'safe-b': 'env(safe-area-inset-bottom)',
         'safe-t': 'env(safe-area-inset-top)',
       },

@@ -174,3 +174,47 @@ export function getLocalHistoryCache(): HistoryEntry[] {
     return []
   }
 }
+
+export const LOCAL_VISIT_ID_PREFIX = 'local-'
+
+export function isLocalVisitId(id: string): boolean {
+  return id.startsWith(LOCAL_VISIT_ID_PREFIX)
+}
+
+export function localVisitIdFromTimestamp(timestamp: number): string {
+  return `${LOCAL_VISIT_ID_PREFIX}${timestamp}`
+}
+
+/** 从 local-* id 解析 timestamp */
+export function parseLocalVisitTimestamp(id: string): number | null {
+  if (!isLocalVisitId(id)) return null
+  const ts = Number(id.slice(LOCAL_VISIT_ID_PREFIX.length))
+  return Number.isFinite(ts) ? ts : null
+}
+
+/** 按 local id 读取本地历史详情 */
+export function getLocalHistoryEntryById(id: string): HistoryEntry | null {
+  const timestamp = parseLocalVisitTimestamp(id)
+  if (timestamp === null) return null
+  return getLocalHistoryCache().find((e) => e.timestamp === timestamp) ?? null
+}
+
+/** 删除本地历史条目 */
+export function deleteLocalHistoryEntry(id: string): boolean {
+  const timestamp = parseLocalVisitTimestamp(id)
+  if (timestamp === null) return false
+  try {
+    const history: HistoryEntry[] = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+    const next = history.filter((e) => e.timestamp !== timestamp)
+    if (next.length === history.length) return false
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(next))
+    const synced: number[] = JSON.parse(localStorage.getItem(SYNCED_KEY) || '[]')
+    localStorage.setItem(
+      SYNCED_KEY,
+      JSON.stringify(synced.filter((t) => t !== timestamp)),
+    )
+    return true
+  } catch {
+    return false
+  }
+}

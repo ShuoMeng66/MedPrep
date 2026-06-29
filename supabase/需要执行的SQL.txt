@@ -1,0 +1,36 @@
+================================================================================
+陪诊锦囊 MedPrep — Supabase 完整重建说明
+================================================================================
+
+⚠️  会删除 visits / profiles / shares 全部数据（auth 账号不删）
+
+【推荐做法】
+  1. 打开项目文件：supabase/完整重建.sql
+  2. Ctrl+A 全选 → 复制
+  3. Supabase Dashboard → SQL Editor → 粘贴 → Run
+
+不要从本 txt 复制！txt 里含说明文字，容易把验证 SQL 或分隔线一起粘进去导致语法错误。
+
+--------------------------------------------------------------------------------
+执行成功后单独运行下面两句验证（新开一个 Query，可选）
+--------------------------------------------------------------------------------
+
+SELECT count(*) AS profile_count FROM public.profiles;
+SELECT count(*) AS visit_count FROM public.visits;
+
+应看到 profiles 约 11 行，visits 为 0，Table Editor 有 profiles / visits / shares 三张表。
+
+--------------------------------------------------------------------------------
+若 Storage 策略报错「policy already exists」
+--------------------------------------------------------------------------------
+
+说明表已建成功，只是 avatars 策略重复。可忽略，或只执行：
+
+DROP POLICY IF EXISTS "avatars_select_public" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_insert_own" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_update_own" ON storage.objects;
+DROP POLICY IF EXISTS "avatars_delete_own" ON storage.objects;
+
+然后重新执行 完整重建.sql 里「CREATE POLICY avatars_...」那 4 段。
+
+================================================================================
