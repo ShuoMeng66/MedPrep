@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
-import {
-  Stethoscope, Mail, Lock, UserPlus, LogIn, Eye, EyeOff,
+import { Mail, Lock, UserPlus, LogIn, Eye, EyeOff,
   Sparkles, AlertCircle, ChevronDown, ChevronUp, Send, ArrowRight,
   Activity, CheckCircle, XCircle, Loader,
 } from 'lucide-react'
@@ -159,9 +158,11 @@ export default function Login() {
       <div className="app-container py-8 sm:py-12">
         {/* Logo 区域 */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center bg-gradient-to-br from-orange-400 to-orange-500 rounded-2xl p-3 mb-4 shadow-lg shadow-orange-200">
-            <Stethoscope className="w-10 h-10 text-white" />
-          </div>
+          <img
+            src={`${import.meta.env.BASE_URL}icon-192.png`}
+            alt=""
+            className="w-16 h-16 rounded-2xl shadow-lg mx-auto mb-4"
+          />
           <h1 className="text-2xl font-bold text-gray-800">陪诊锦囊</h1>
           <p className="text-sm text-gray-500 mt-1">MedPrep</p>
           <p className="text-sm text-gray-400 mt-3">记录每一次就诊，复诊更有依据</p>

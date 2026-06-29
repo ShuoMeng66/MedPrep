@@ -53,8 +53,8 @@ export async function showAppNotification(
   const options: NotificationOptions = {
     body,
     tag,
-    icon: `${import.meta.env.BASE_URL}favicon.svg`,
-    badge: `${import.meta.env.BASE_URL}favicon.svg`,
+    icon: `${import.meta.env.BASE_URL}icon-192.png`,
+    badge: `${import.meta.env.BASE_URL}icon-192.png`,
     data: { url: `${window.location.origin}${import.meta.env.BASE_URL}#/app` },
   }
 

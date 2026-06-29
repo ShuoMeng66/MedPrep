@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { Stethoscope, AlertCircle, User, Clock, Settings } from 'lucide-react'
+import { AlertCircle, User, Clock, Settings } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 
 export default function Header() {
@@ -17,9 +17,11 @@ export default function Header() {
         <div className="app-container py-6 sm:py-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="bg-white/20 rounded-2xl p-2.5">
-                <Stethoscope className="w-8 h-8" />
-              </div>
+              <img
+                src={`${import.meta.env.BASE_URL}icon-192.png`}
+                alt=""
+                className="w-10 h-10 rounded-xl"
+              />
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold tracking-wide">陪诊锦囊</h1>
                 <p className="text-orange-100 text-sm mt-0.5">MedPrep</p>
